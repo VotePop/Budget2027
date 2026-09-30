@@ -9,6 +9,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -26,10 +27,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+class UTF8JSONResponse(JSONResponse):
+    media_type = "application/json; charset=utf-8"
+
+
 app = FastAPI(
     title="Simulateur Budget France API",
     description="API publique du moteur économique france-budget-simulateur (AGPL-3.0)",
-    version="4.5"
+    version="4.5",
+    default_response_class=UTF8JSONResponse,
 )
 
 # Origines CORS — surcharge via env var CORS_ORIGINS (séparées par virgules).
@@ -255,7 +261,14 @@ async def get_scenarios():
 @app.get("/")
 @app.head("/")
 async def root():
-    """Route racine — info API (supporte GET et HEAD pour health checks plateforme)."""
+    """Route racine — redirige vers l'interface web (/ui/)."""
+    return RedirectResponse(url="/ui/")
+
+
+@app.get("/api")
+@app.head("/api")
+async def api_info():
+    """Info API (déplacé depuis "/", qui redirige maintenant vers /ui/)."""
     return {
         "name": "France Budget API",
         "version": "4.5",
@@ -270,7 +283,6 @@ async def root():
         },
         "debug_mode": DEBUG_MODE
     }
-
 
 @app.get("/health")
 async def health():
