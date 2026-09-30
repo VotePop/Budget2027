@@ -82,8 +82,7 @@
       dans le même esprit (voir <code>budget_simulator/decile.py</code>).
       <br><br>
       <strong>Code source de cette version (obligation AGPL-3.0 §13)</strong> :
-      <a href="__LIEN_DEPOT_PUBLIC_A_COMPLETER__" target="_blank" rel="noopener">__LIEN_DEPOT_PUBLIC_A_COMPLETER__</a>
-      — ce lien doit être mis à jour vers le dépôt public réel avant toute mise en ligne accessible à des tiers (voir <code>CHANGES.md</code>).
+      <a href="https://github.com/VotePop/Budget2027" target="_blank" rel="noopener">https://github.com/VotePop/Budget2027</a>
     </div>
   </div>
 </div>
@@ -100,38 +99,48 @@ const LEVERS = [
   {id:"prestations_indexation", label:"Indexation des prestations sociales", param:"taux_indexation", min:0, max:1.2, step:0.05, default:1.0, fmt:v=>(v*100).toFixed(0)+"% de l'inflation", decile:true},
   {id:"retraites", label:"Indexation des pensions de retraite", param:"indexation", min:0, max:1.2, step:0.05, default:1.0, fmt:v=>(v*100).toFixed(0)+"% de l'inflation", decile:true},
   {id:"fraude_fiscale", label:"Lutte contre la fraude fiscale", param:"effort", min:0, max:1, step:0.05, default:0, fmt:v=>(v*100).toFixed(0)+"% d'intensité", decile:false},
-  {id:"transition_ecologique", label:"Transition écologique (investissement)", param:"investissement", min:0, max:40, step:1, default:0, fmt:v=>v.toFixed(0)+" Md€", decile:false},
+  {id:"transition_ecologique", key:"transition_investissement", label:"Transition écologique (investissement)", param:"investissement", min:0, max:40, step:1, default:0, fmt:v=>v.toFixed(0)+" Md€", decile:false},
+  // AJOUT (2026-09) : deux sous-leviers de `transition_ecologique` existaient déjà côté API
+  // (policy_measures.json / _apply_transition_ecologique) mais n'avaient jamais été câblés
+  // dans cette interface — un utilisateur ne pouvait donc pas les atteindre depuis les
+  // sliders, même si le moteur les gérait. `key` distingue chaque sous-lever dans `state`/le
+  // DOM (plusieurs sliders peuvent partager le même `id` de mesure) ; `id`+`param` restent
+  // ce qui est envoyé à l'API (cf. buildMesures ci-dessous, qui fusionne désormais les
+  // sous-leviers d'une même mesure au lieu d'écraser l'un par l'autre).
+  {id:"transition_ecologique", key:"transition_taxe_carbone", label:"Taxe carbone (composante carbone)", param:"taxe_carbone", min:0, max:150, step:5, default:44.6, fmt:v=>v.toFixed(1)+" €/tCO2", decile:false},
+  {id:"transition_ecologique", key:"transition_renovation", label:"Transition écologique (rénovation)", param:"renovation", min:0, max:20, step:1, default:0, fmt:v=>v.toFixed(0)+" Md€", decile:false},
 ];
 
 const DECILES = ["D1","D2","D3","D4","D5","D6","D7","D8","D9","D10"];
 let state = {};
-LEVERS.forEach(l => state[l.id] = l.default);
+LEVERS.forEach(l => state[l.key || l.id] = l.default);
 
 function buildLevers(){
   const root = document.getElementById("levers");
   root.innerHTML = "<h2 style='font-size:1rem;margin-top:0;'>Leviers</h2>";
   LEVERS.forEach(l => {
+    const k = l.key || l.id;
     const div = document.createElement("div");
     div.className = "lever";
     div.innerHTML = `
       <label>
         <span>${l.label} ${l.decile ? '<span class="badge ok">ventilé décile</span>' : '<span class="badge macro">macro seul</span>'}</span>
-        <span class="val" id="val-${l.id}">${l.fmt(l.default)}</span>
+        <span class="val" id="val-${k}">${l.fmt(l.default)}</span>
       </label>
-      <input type="range" id="range-${l.id}" min="${l.min}" max="${l.max}" step="${l.step}" value="${l.default}">
+      <input type="range" id="range-${k}" min="${l.min}" max="${l.max}" step="${l.step}" value="${l.default}">
     `;
     root.appendChild(div);
     const range = div.querySelector("input");
     range.addEventListener("input", () => {
       const v = parseFloat(range.value);
-      state[l.id] = v;
-      document.getElementById(`val-${l.id}`).textContent = l.fmt(v);
+      state[k] = v;
+      document.getElementById(`val-${k}`).textContent = l.fmt(v);
       runSimulation();
     });
   });
   const btn = document.createElement("button");
   btn.textContent = "Réinitialiser";
-  btn.onclick = () => { LEVERS.forEach(l => state[l.id] = l.default); buildLevers(); runSimulation(); };
+  btn.onclick = () => { LEVERS.forEach(l => state[l.key || l.id] = l.default); buildLevers(); runSimulation(); };
   root.appendChild(btn);
   const status = document.createElement("div");
   status.className = "status";
@@ -142,8 +151,11 @@ function buildLevers(){
 function buildMesures(){
   const mesures = {};
   LEVERS.forEach(l => {
-    if (state[l.id] !== l.default) {
-      mesures[l.id] = { [l.param]: state[l.id] };
+    const k = l.key || l.id;
+    if (state[k] !== l.default) {
+      // Fusion : plusieurs sous-leviers (ex. transition_ecologique) partagent le même id de
+      // mesure mais des params différents — ne pas écraser les sous-leviers déjà actifs.
+      mesures[l.id] = Object.assign({}, mesures[l.id], { [l.param]: state[k] });
     }
   });
   return mesures;
