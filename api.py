@@ -9,7 +9,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -261,7 +261,14 @@ async def get_scenarios():
 @app.get("/")
 @app.head("/")
 async def root():
-    """Route racine — info API (supporte GET et HEAD pour health checks plateforme)."""
+    """Route racine — redirige vers l'interface web (/ui/)."""
+    return RedirectResponse(url="/ui/")
+
+
+@app.get("/api")
+@app.head("/api")
+async def api_info():
+    """Info API (déplacé depuis "/", qui redirige maintenant vers /ui/)."""
     return {
         "name": "France Budget API",
         "version": "4.5",
@@ -276,7 +283,6 @@ async def root():
         },
         "debug_mode": DEBUG_MODE
     }
-
 
 @app.get("/health")
 async def health():
