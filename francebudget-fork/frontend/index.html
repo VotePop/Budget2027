@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulateur Budget France — vue par décile</title>
+<style>
+  :root{
+    --bg:#f6f5f2; --panel:#ffffff; --ink:#1f2a2c; --ink-soft:#5b6058;
+    --border:#dfdcd3; --accent:#1f3a3d; --accent-soft:#c9e4ca;
+    --warn:#8a3b32; --good:#2f6f4e; --gap-bar:#e7e3d8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#15191a; --panel:#1e2426; --ink:#eef0ee; --ink-soft:#a9b0ac;
+      --border:#333b3a; --accent:#8fd3c7; --accent-soft:#274a3f; --warn:#e08a7d; --good:#7fd1a3; --gap-bar:#2a2f2d; }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:24px 16px 60px;}
+  h1{font-size:1.3rem;margin:0 0 4px;}
+  .sub{color:var(--ink-soft);font-size:.85rem;margin:0 0 20px;max-width:70ch;}
+  .layout{display:grid;grid-template-columns:340px 1fr;gap:20px;max-width:1200px;margin:0 auto;}
+  @media (max-width:860px){.layout{grid-template-columns:1fr;}}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;}
+  .lever{margin-bottom:16px;}
+  .lever label{display:flex;justify-content:space-between;font-size:.82rem;font-weight:600;margin-bottom:4px;}
+  .lever .val{font-variant-numeric:tabular-nums;color:var(--accent);}
+  .lever input[type=range]{width:100%;}
+  .lever .note{font-size:.72rem;color:var(--ink-soft);margin-top:2px;}
+  .badge{display:inline-block;font-size:.65rem;padding:1px 6px;border-radius:999px;margin-left:6px;}
+  .badge.ok{background:var(--accent-soft);color:var(--good);}
+  .badge.macro{background:var(--gap-bar);color:var(--ink-soft);}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;}
+  .kpi .lbl{font-size:.72rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .kpi .num{font-size:1.4rem;font-variant-numeric:tabular-nums;font-weight:700;}
+  @media (max-width:600px){.kpis{grid-template-columns:repeat(2,1fr);}}
+  .chart-wrap{overflow-x:auto;}
+  svg text{fill:var(--ink);font-size:11px;}
+  svg .grid{stroke:var(--border);stroke-width:1;}
+  svg .bar-pos{fill:var(--warn);}
+  svg .bar-neg{fill:var(--good);}
+  .legend{font-size:.78rem;color:var(--ink-soft);margin-top:8px;}
+  .foot-note{font-size:.72rem;color:var(--ink-soft);margin-top:16px;line-height:1.5;max-width:80ch;}
+  .mesure-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:.8rem;}
+  .mesure-table th,.mesure-table td{border-bottom:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top;}
+  .mesure-table th{color:var(--ink-soft);font-weight:600;font-size:.72rem;text-transform:uppercase;}
+  .src{font-size:.7rem;color:var(--ink-soft);}
+  button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:.85rem;font-weight:600;cursor:pointer;}
+  button:hover{opacity:.9;}
+  .status{font-size:.78rem;margin-top:8px;color:var(--ink-soft);}
+  .nonventile{font-size:.78rem;color:var(--warn);margin-top:10px;}
+</style>
+</head>
+<body>
+
+<h1>Simulateur Budget France — vue par décile</h1>
+<p class="sub">
+  Moteur macro-budgétaire <a href="https://github.com/cturkieh/france-budget-simulateur" target="_blank" rel="noopener">france-budget-simulateur</a> (AGPL-3.0, Cyril Turkieh) — instance officielle <a href="https://francebudget.fr" target="_blank" rel="noopener">francebudget.fr</a>.
+  Cette page ajoute une couche non présente dans le projet d'origine : la ventilation de chaque mesure par décile de niveau de vie
+  (mêmes sources que le classeur <em>Simulateur_Impact_Menages.xlsx</em> de ce projet). Voir la note en bas de page pour les mesures
+  non ventilables et les limites de rapprochement.
+</p>
+
+<div class="layout">
+  <div class="panel" id="levers"></div>
+
+  <div>
+    <div class="kpis" id="kpis"></div>
+    <div class="panel">
+      <strong>Ventilation par décile de niveau de vie (Md€, mesures ventilables uniquement)</strong>
+      <div class="chart-wrap"><svg id="chart" width="760" height="320"></svg></div>
+      <div class="legend"><span style="color:var(--warn)">■</span> coût pour le décile &nbsp; <span style="color:var(--good)">■</span> gain/économie pour le décile</div>
+      <table class="mesure-table" id="mesure-table"></table>
+      <div class="nonventile" id="nonventile"></div>
+    </div>
+    <div class="foot-note">
+      Méthode : le moteur original calcule le delta Md€ net de chaque mesure (recettes − dépenses, 1ère année d'entrée en vigueur) ;
+      cette page ne recalcule pas ce delta, elle le reprend tel quel et le répartit selon nos propres clés de décile sourcées
+      (CPO/Boutchenik 2015, DG Trésor Trésor-Éco n°371, DREES, Insee — voir le classeur Excel du projet pour le détail complet).
+      Les mesures sans clé de décile sourcée de notre côté (fraude, éducation, transition écologique...) restent volontairement
+      non ventilées plutôt que de recevoir une hypothèse inventée. Licence du moteur : AGPL-3.0 — cette extension est publiée
+      dans le même esprit (voir <code>budget_simulator/decile.py</code>).
+      <br><br>
+      <strong>Code source de cette version (obligation AGPL-3.0 §13)</strong> :
+      <a href="__LIEN_DEPOT_PUBLIC_A_COMPLETER__" target="_blank" rel="noopener">__LIEN_DEPOT_PUBLIC_A_COMPLETER__</a>
+      — ce lien doit être mis à jour vers le dépôt public réel avant toute mise en ligne accessible à des tiers (voir <code>CHANGES.md</code>).
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = ""; // vide = même origine (page servie par l'API FastAPI elle-même)
+
+const LEVERS = [
+  {id:"tva_rate", label:"TVA (taux général)", param:"taux", min:0.055, max:0.25, step:0.005, default:0.20, fmt:v=>(v*100).toFixed(1)+"%", decile:true},
+  {id:"csg", label:"CSG (taux global)", param:"taux", min:0.08, max:0.12, step:0.001, default:0.097, fmt:v=>(v*100).toFixed(1)+"%", decile:true},
+  {id:"cotisations_salariales", label:"Baisse cotisations salariales", param:"baisse_points", min:0, max:5, step:0.25, default:0, fmt:v=>"-"+v.toFixed(2)+" pt", decile:true},
+  {id:"impot_societes", label:"Impôt sur les sociétés", param:"taux", min:0.15, max:0.33, step:0.005, default:0.25, fmt:v=>(v*100).toFixed(1)+"%", decile:true},
+  {id:"fiscalite_patrimoine", label:"Fiscalité du patrimoine (IFI+succession+foncière)", param:"intensite", min:-0.3, max:0.3, step:0.01, default:0, fmt:v=>(v>=0?"+":"")+(v*100).toFixed(0)+"%", decile:true},
+  {id:"prestations_indexation", label:"Indexation des prestations sociales", param:"taux_indexation", min:0, max:1.2, step:0.05, default:1.0, fmt:v=>(v*100).toFixed(0)+"% de l'inflation", decile:true},
+  {id:"retraites", label:"Indexation des pensions de retraite", param:"indexation", min:0, max:1.2, step:0.05, default:1.0, fmt:v=>(v*100).toFixed(0)+"% de l'inflation", decile:true},
+  {id:"fraude_fiscale", label:"Lutte contre la fraude fiscale", param:"effort", min:0, max:1, step:0.05, default:0, fmt:v=>(v*100).toFixed(0)+"% d'intensité", decile:false},
+  {id:"transition_ecologique", label:"Transition écologique (investissement)", param:"investissement", min:0, max:40, step:1, default:0, fmt:v=>v.toFixed(0)+" Md€", decile:false},
+];
+
+const DECILES = ["D1","D2","D3","D4","D5","D6","D7","D8","D9","D10"];
+let state = {};
+LEVERS.forEach(l => state[l.id] = l.default);
+
+function buildLevers(){
+  const root = document.getElementById("levers");
+  root.innerHTML = "<h2 style='font-size:1rem;margin-top:0;'>Leviers</h2>";
+  LEVERS.forEach(l => {
+    const div = document.createElement("div");
+    div.className = "lever";
+    div.innerHTML = `
+      <label>
+        <span>${l.label} ${l.decile ? '<span class="badge ok">ventilé décile</span>' : '<span class="badge macro">macro seul</span>'}</span>
+        <span class="val" id="val-${l.id}">${l.fmt(l.default)}</span>
+      </label>
+      <input type="range" id="range-${l.id}" min="${l.min}" max="${l.max}" step="${l.step}" value="${l.default}">
+    `;
+    root.appendChild(div);
+    const range = div.querySelector("input");
+    range.addEventListener("input", () => {
+      const v = parseFloat(range.value);
+      state[l.id] = v;
+      document.getElementById(`val-${l.id}`).textContent = l.fmt(v);
+      runSimulation();
+    });
+  });
+  const btn = document.createElement("button");
+  btn.textContent = "Réinitialiser";
+  btn.onclick = () => { LEVERS.forEach(l => state[l.id] = l.default); buildLevers(); runSimulation(); };
+  root.appendChild(btn);
+  const status = document.createElement("div");
+  status.className = "status";
+  status.id = "status";
+  root.appendChild(status);
+}
+
+function buildMesures(){
+  const mesures = {};
+  LEVERS.forEach(l => {
+    if (state[l.id] !== l.default) {
+      mesures[l.id] = { [l.param]: state[l.id] };
+    }
+  });
+  return mesures;
+}
+
+function renderKpis(results){
+  const last = results[results.length - 1];
+  const root = document.getElementById("kpis");
+  const items = [
+    {lbl:"Déficit / PIB", v: last["Déficit/PIB %"].toFixed(2) + "%"},
+    {lbl:"Dette / PIB", v: last["Dette/PIB %"].toFixed(1) + "%"},
+    {lbl:"Croissance", v: last["Croissance %"].toFixed(2) + "%"},
+    {lbl:"Chômage", v: last["Chômage %"].toFixed(2) + "%"},
+  ];
+  root.innerHTML = items.map(i => `<div class="kpi"><div class="lbl">${i.lbl}</div><div class="num">${i.v}</div></div>`).join("");
+}
+
+function renderChart(totalParDecile){
+  const svg = document.getElementById("chart");
+  const w = 760, h = 320, padL = 50, padB = 30, padT = 10, padR = 10;
+  const values = DECILES.map(d => totalParDecile[d] || 0);
+  const maxAbs = Math.max(1, ...values.map(v => Math.abs(v)));
+  const zeroY = padT + (h - padT - padB) * (maxAbs / (2 * maxAbs));
+  const scaleY = (h - padT - padB) / (2 * maxAbs);
+  const bw = (w - padL - padR) / DECILES.length;
+
+  let svgContent = `<line class="grid" x1="${padL}" y1="${zeroY}" x2="${w-padR}" y2="${zeroY}"></line>`;
+  DECILES.forEach((d, i) => {
+    const v = values[i];
+    const x = padL + i * bw + bw * 0.15;
+    const bwi = bw * 0.7;
+    const barH = Math.abs(v) * scaleY;
+    const y = v >= 0 ? zeroY - barH : zeroY;
+    svgContent += `<rect class="${v>=0?'bar-pos':'bar-neg'}" x="${x}" y="${y}" width="${bwi}" height="${Math.max(barH,0.5)}"></rect>`;
+    svgContent += `<text x="${x + bwi/2}" y="${h - padB + 14}" text-anchor="middle">${d}</text>`;
+    svgContent += `<text x="${x + bwi/2}" y="${v>=0 ? y - 4 : y + barH + 12}" text-anchor="middle" font-size="9">${v.toFixed(1)}</text>`;
+  });
+  svgContent += `<text x="4" y="${padT+10}" font-size="9">+${maxAbs.toFixed(0)} Md€</text>`;
+  svgContent += `<text x="4" y="${h-padB}" font-size="9">-${maxAbs.toFixed(0)} Md€</text>`;
+  svg.innerHTML = svgContent;
+}
+
+function renderTable(decile){
+  const root = document.getElementById("mesure-table");
+  const rows = Object.entries(decile.par_mesure);
+  if (rows.length === 0){
+    root.innerHTML = "<tr><td>Aucune mesure ventilable active — bougez un levier marqué \"ventilé décile\".</td></tr>";
+  } else {
+    root.innerHTML = `<tr><th>Mesure</th><th>Total (Md€)</th><th>Source</th></tr>` +
+      rows.map(([m, d]) => `<tr>
+        <td>${m}${d.note_rapprochement ? ' <span class="badge macro" title="'+d.note_rapprochement.replace(/"/g,'&quot;')+'">⚠ rapprochement</span>' : ''}</td>
+        <td>${d.total_md_eur.toFixed(2)}</td>
+        <td class="src">${d.source}</td>
+      </tr>`).join("");
+  }
+  const nv = document.getElementById("nonventile");
+  nv.textContent = decile.mesures_non_ventilees.length
+    ? "Non ventilé par décile (pas de clé sourcée de notre côté) : " + decile.mesures_non_ventilees.join(", ")
+    : "";
+}
+
+async function runSimulation(){
+  const status = document.getElementById("status");
+  status.textContent = "Calcul en cours…";
+  try {
+    const res = await fetch(`${API_BASE}/simulate_decile`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ mesures: buildMesures(), periods: 2 })
+    });
+    if (!res.ok){
+      const err = await res.json().catch(() => ({detail: res.statusText}));
+      status.textContent = "Erreur : " + (err.detail || res.statusText);
+      return;
+    }
+    const data = await res.json();
+    renderKpis(data.results);
+    renderChart(data.decile.total_par_decile);
+    renderTable(data.decile);
+    status.textContent = "";
+  } catch (e) {
+    status.textContent = "Impossible de contacter l'API (" + e.message + "). Est-elle bien lancée (uvicorn api:app) ?";
+  }
+}
+
+buildLevers();
+runSimulation();
+</script>
+</body>
+</html>
