@@ -878,6 +878,15 @@
       "params": {
         "taux": {
           "default": 0.2
+        },
+        "taux_intermediaire": {
+          "default": 0.1
+        },
+        "taux_particulier": {
+          "default": 0.021
+        },
+        "taux_reduit": {
+          "default": 0.055
         }
       },
       "sliders": [

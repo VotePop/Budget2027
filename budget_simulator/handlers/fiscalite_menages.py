@@ -2,7 +2,10 @@
 
 Mesures couvertes (8 handlers) :
 - ``tva_rate`` : taux de TVA général (base 20 %). Élasticité conso, effet Laffer
-  au-delà de 22 %. Effets gini/PA/compétitivité one-time.
+  au-delà de 22 %. Effets gini/PA/compétitivité one-time. Depuis 2026-09, porte
+  aussi les 3 autres taux officiels (intermédiaire 10 %, réduit 5,5 %,
+  particulier 2,1 %) — canal recettes LINÉAIRE uniquement (rendement/point DG
+  Trésor Trésor-Éco n°371), pas de canal gini/PA/compétitivité propre à ces 3.
 - ``tva_energie`` : taux de TVA énergie (gaz + électricité, base 20 %). Slider
   unique vers 5,5 % (NFP/RN). Phasing 1 an, effets NIVEAU one-time.
 - ``impot_revenu`` : barème IR — taux 5e tranche + décote. Assiette MARGINALE
@@ -37,6 +40,8 @@ Convention d'application :
 Sources principales :
 - OFCE 2024 (TVA et inégalités, CSG régressive), INSEE 2018 (hausse TVA),
   CAE 2022/2024 (répercussion prix, attractivité).
+- DG Trésor, Trésor-Éco n°371 (09/2025) : rendement net par point pour les 3
+  taux de TVA autres que le taux normal (intermédiaire/réduit/particulier).
 - DGFiP POTE 2024, DG Trésor 2018, IPP TAXIPP 2024 (barème IR, Laffer).
 - DREES 2024, OFCE 2023 (progressivité CSG, modèle Allemagne).
 - URSSAF 2024, DARES (cotisations salariales).
@@ -78,6 +83,35 @@ class FiscaliteMenagesMixin(_MixinBase):
         delta_revenue = (rate - 0.20) * adjusted_base * 0.9
         if rate > 0.22:
             delta_revenue *= (1 - 0.2 * (rate - 0.22) / 0.03)
+
+        # === RECETTES — 3 AUTRES TAUX DE TVA (2026-09) ===
+        # Ajout (2026-09) : jusqu'ici seul le taux normal était pilotable. Le canal
+        # recettes des 3 autres taux officiels (intermédiaire 10 %, réduit 5,5 %,
+        # particulier 2,1 %) est modélisé ICI en LINÉAIRE — pas de courbe d'élasticité
+        # propre à chaque taux (contrairement au taux normal ci-dessus), faute de
+        # source distincte par taux pour un effet comportemental. Rendement net par
+        # point directement repris de l'étude officielle (pas une assiette dérivée
+        # par nous) : DG Trésor, Trésor-Éco n°371 (09/2025), "Analyse de la
+        # composition des recettes de TVA", tableau 1 — rendement NET par point de
+        # TVA en 2025 (net = brut corrigé de la TVA payée par les administrations
+        # publiques elles-mêmes, à partir du compte 2022 Insee semi-définitif) :
+        #   taux normal (20 %) : 7,5 Md€/point (brut 8,9) — NON repris ici, cf. plus haut
+        #   taux intermédiaire (10 %) : 1,6 Md€/point (brut 1,9)
+        #   taux réduit (5,5 %)       : 2,0 Md€/point (brut 2,4)
+        #   taux particulier (2,1 %)  : 0,4 Md€/point (brut 0,4)
+        # Limite assumée : les canaux gini/pouvoir_achat/compétitivité ci-dessous
+        # restent calculés uniquement sur le taux normal — aucune source distincte
+        # par taux pour ces canaux n'a été trouvée, donc aucun chiffre n'est inventé
+        # pour les 3 nouveaux paramètres sur ces canaux.
+        RENDEMENT_NET_TVA_INTERMEDIAIRE_PAR_POINT_MD_EUR = 1.6
+        RENDEMENT_NET_TVA_REDUIT_PAR_POINT_MD_EUR = 2.0
+        RENDEMENT_NET_TVA_PARTICULIER_PAR_POINT_MD_EUR = 0.4
+        taux_intermediaire = params.get('taux_intermediaire', 0.10)
+        taux_reduit = params.get('taux_reduit', 0.055)
+        taux_particulier = params.get('taux_particulier', 0.021)
+        delta_revenue += (taux_intermediaire - 0.10) / 0.01 * RENDEMENT_NET_TVA_INTERMEDIAIRE_PAR_POINT_MD_EUR
+        delta_revenue += (taux_reduit - 0.055) / 0.01 * RENDEMENT_NET_TVA_REDUIT_PAR_POINT_MD_EUR
+        delta_revenue += (taux_particulier - 0.021) / 0.01 * RENDEMENT_NET_TVA_PARTICULIER_PAR_POINT_MD_EUR
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Impact ONE-TIME (changement structure fiscale)

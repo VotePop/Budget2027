@@ -26,7 +26,7 @@
       "id": "tva_rate",
       "categorie": "fiscalite",
       "nom": "Taux de TVA",
-      "description": "Modification du taux normal de TVA",
+      "description": "Modification des 4 taux de TVA (normal, intermédiaire, réduit, particulier)",
       "type": "fonction",
       "cible": "recettes",
       "parametres": {
@@ -37,6 +37,33 @@
           "step": 0.005,
           "label": "Taux de TVA",
           "type": "number"
+        },
+        "taux_intermediaire": {
+          "valeur_defaut": 0.1,
+          "min": 0.055,
+          "max": 0.2,
+          "step": 0.005,
+          "label": "Taux intermédiaire (restauration, travaux, transport...)",
+          "type": "number",
+          "tooltip": "Actuel 10%. Rendement d'1 point : 1,6 Md€ net (élasticité comportementale non isolée séparément, effet linéaire). Source : DG Trésor, Trésor-Éco n°371 (09/2025), tableau 1, rendement net 2025."
+        },
+        "taux_reduit": {
+          "valeur_defaut": 0.055,
+          "min": 0.021,
+          "max": 0.1,
+          "step": 0.005,
+          "label": "Taux réduit (alimentation, livres, énergie...)",
+          "type": "number",
+          "tooltip": "Actuel 5,5%. Rendement d'1 point : 2,0 Md€ net. Source : DG Trésor, Trésor-Éco n°371 (09/2025), tableau 1, rendement net 2025."
+        },
+        "taux_particulier": {
+          "valeur_defaut": 0.021,
+          "min": 0.01,
+          "max": 0.1,
+          "step": 0.005,
+          "label": "Taux particulier (presse, médicaments remboursables...)",
+          "type": "number",
+          "tooltip": "Actuel 2,1%. Rendement d'1 point : 0,4 Md€ net. Source : DG Trésor, Trésor-Éco n°371 (09/2025), tableau 1, rendement net 2025."
         }
       }
     },

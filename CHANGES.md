@@ -62,6 +62,28 @@ original (par opposition aux ajouts listés ci-dessus, dans des fichiers nouveau
   précises. Seule la formule de recettes a changé ; les canaux Gini/pouvoir d'achat/
   compétitivité de cette mesure (déjà sourcés Douenne 2020, IPP note 34, CAE 2023/CBAM)
   n'ont pas été touchés.
+- **2026-09-30 — `budget_simulator/handlers/fiscalite_menages.py`** (mesure `tva_rate`) :
+  ajout de 3 nouveaux paramètres pilotables — `taux_intermediaire` (10 %, restauration/
+  travaux/transport...), `taux_reduit` (5,5 %, alimentation/livres/énergie...) et
+  `taux_particulier` (2,1 %, presse/médicaments remboursables...). Jusqu'ici seul le taux
+  normal (`taux`, 20 %) était un levier ; les 3 autres taux officiels de TVA n'avaient
+  aucune prise dans le moteur. Le canal recettes de ces 3 nouveaux paramètres est
+  volontairement LINÉAIRE (delta = écart en points × rendement net par point), sans
+  courbe d'élasticité propre — contrairement au taux normal, qui garde sa modélisation
+  historique inchangée. Source du rendement/point : DG Trésor, Trésor-Éco n°371
+  (09/2025), « Analyse de la composition des recettes de TVA », tableau 1 (rendement net
+  2025, à partir du compte 2022 Insee semi-définitif) : intermédiaire 1,6 Md€/point,
+  réduit 2,0 Md€/point, particulier 0,4 Md€/point. Limite assumée et documentée dans le
+  code : les canaux Gini/pouvoir d'achat/compétitivité restent calculés uniquement sur le
+  taux normal, faute de source distincte par taux pour ces canaux — aucun chiffre n'est
+  inventé pour les 3 nouveaux paramètres sur ces canaux. `policy_measures.json` mis à
+  jour en cohérence (3 nouvelles entrées `parametres` sous `tva_rate`, avec tooltips
+  sourcés) ; `tests/snapshots/measure_registry.json` mis à jour à la main pour le volet
+  `params` (le générateur `scripts/generate_measure_registry.py` ne peut pas tourner
+  dans ce fork — il attend un `frontend-react/` absent ici, limitation pré-existante
+  déjà tolérée par le skip conditionnel de `tests/test_measure_registry_sync.py`).
+  Nouveau test dédié : `tests/test_tva_multitaux.py` (6 tests : statu quo, isolation de
+  chacun des 3 nouveaux paramètres, additivité, non-régression du taux normal).
 - **2026-09-30 — `tests/test_carbon_tax_abrogation.py`** : la sonde de test lisait un delta
   de recettes via une colonne d'affichage arrondie à 1 décimale (`Recettes/PIB % × PIB`), ce
   qui produisait un faux positif de "discontinuité" avec le nouveau coefficient (plus grand)
