@@ -12,6 +12,7 @@
     --accent:#2dd4bf; --accent2:#f5b942;
     --good:#34d399; --bad:#f87171; --flat:#8b90a3;
     --blue:#7dd3fc;         /* bleu ciel — titre/accent bloc "Compétitivité" */
+    --green:#4ade80; --pink:#f472b6; /* couleurs supplémentaires pour distinguer les 5 thématiques */
   }
   *{box-sizing:border-box;}
   body{
@@ -19,12 +20,12 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     padding-bottom:60px;
   }
-  header.top{padding:16px 20px 12px; border-bottom:1px solid var(--border);}
-  header.top .inner{max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:5px;}
-  header.top h1{margin:0; font-size:1.2rem; letter-spacing:-0.01em;}
-  header.top p{margin:0; color:var(--muted); font-size:0.8rem; max-width:80ch; line-height:1.5;}
+  header.top{padding:52px 20px 24px; border-bottom:1px solid var(--border);}
+  header.top .inner{max-width:1180px; margin:0 auto; display:flex; flex-direction:column; align-items:center; gap:5px; text-align:center;}
+  header.top h1{margin:0; font-size:1.9rem; font-weight:800; letter-spacing:-0.01em;}
+  @media (max-width:600px){ header.top h1{font-size:1.4rem;} }
   .note{
-    max-width:1180px; margin:12px auto 0; padding:10px 14px; border-radius:10px;
+    max-width:1180px; margin:48px auto 0; padding:10px 14px; border-radius:10px;
     background:rgba(245,185,66,0.08); border:1px solid rgba(245,185,66,0.3);
     font-size:0.78rem; color:var(--muted); line-height:1.55;
   }
@@ -122,7 +123,7 @@
   .theme-count b{color:var(--text);}
   .theme-sub{margin:0; font-size:0.76rem; color:var(--muted2); max-width:90ch;}
   .theme-bar{height:3px; border-radius:2px; background:var(--surface2); overflow:hidden; margin-top:2px;}
-  .theme-bar .fill{height:100%; background:var(--accent); border-radius:2px; transition:width 0.2s ease;}
+  .theme-bar .fill{height:100%; background:var(--tabc, var(--accent)); border-radius:2px; transition:width 0.2s ease;}
 
   /* ---- Grille compacte : une carte = une mesure moteur indépendante (principale ou "repliée").
      Les réglages qui partagent VRAIMENT la même mesure (ex. les 3 autres taux de TVA) sont
@@ -141,7 +142,12 @@
     padding:8px 10px; display:flex; flex-direction:column; gap:0;
     transition:border-color 0.15s ease; min-height:104px;
   }
-  .lever.active{border-color:rgba(45,212,191,0.45);}
+  .lever.active{border-color:var(--tabc, rgba(45,212,191,0.45));}
+  /* Cartes "estimation" : ventilation décile/taille extrapolée (pas une table publiée pour
+     cette mesure précise) — cadre en pointillés pour les distinguer d'un coup d'œil des
+     cartes parfaitement sourcées. Voir la note en bas de page. */
+  .lever.estimation{border-style:dashed;}
+  .lever.estimation.active{border-color:var(--tabc, rgba(245,185,66,0.6));}
   .lever-row{display:flex; align-items:flex-start; gap:8px;}
   .lever-main{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;}
   /* hauteur réservée pour 2 lignes, que le titre tienne sur 1 ou 2 lignes (ex. "Taxe sur les
@@ -164,13 +170,13 @@
   /* bouton "Détails" : peu de hauteur perdue en dessous (padding resserré sur la carte). */
   .detail-toggle{
     display:inline-flex; align-items:center; gap:4px; align-self:flex-start; margin-top:5px;
-    font-size:0.68rem; font-weight:700; color:var(--accent); background:rgba(45,212,191,0.1);
-    border:1px solid rgba(45,212,191,0.35); border-radius:20px; padding:2px 8px; cursor:pointer;
+    font-size:0.68rem; font-weight:700; color:var(--tabc, var(--accent)); background:color-mix(in srgb, var(--tabc, var(--accent)) 10%, transparent);
+    border:1px solid color-mix(in srgb, var(--tabc, var(--accent)) 35%, transparent); border-radius:20px; padding:2px 8px; cursor:pointer;
     transition:background 0.15s ease, color 0.15s ease;
   }
-  .detail-toggle:hover{background:rgba(45,212,191,0.2);}
+  .detail-toggle:hover{background:color-mix(in srgb, var(--tabc, var(--accent)) 20%, transparent);}
   .detail-toggle .chev{display:inline-block; transition:transform 0.15s ease; font-size:0.6rem;}
-  .lever.open .detail-toggle{background:rgba(45,212,191,0.22);}
+  .lever.open .detail-toggle{background:color-mix(in srgb, var(--tabc, var(--accent)) 22%, transparent);}
   .lever.open .detail-toggle .chev{transform:rotate(180deg);}
 
   /* interrupteur compact */
@@ -184,8 +190,8 @@
     content:""; position:absolute; width:11px; height:11px; left:2px; top:2px; background:var(--muted);
     border-radius:50%; transition:transform 0.15s ease, background 0.15s ease;
   }
-  .switch input:checked + .tgl{background:rgba(45,212,191,0.25); border-color:var(--accent);}
-  .switch input:checked + .tgl::before{transform:translateX(13px); background:var(--accent);}
+  .switch input:checked + .tgl{background:color-mix(in srgb, var(--tabc, var(--accent)) 25%, transparent); border-color:var(--tabc, var(--accent));}
+  .switch input:checked + .tgl::before{transform:translateX(13px); background:var(--tabc, var(--accent));}
   .switch.sm{width:26px; height:15px;}
   .switch.sm .tgl::before{width:9px; height:9px;}
   .switch.sm input:checked + .tgl::before{transform:translateX(11px);}
@@ -211,16 +217,16 @@
   input[type="range"]{
     width:100%; appearance:none; height:4px; border-radius:3px; background:var(--surface3); outline:none;
     --pct:0%;
-    background-image:linear-gradient(var(--accent), var(--accent));
+    background-image:linear-gradient(var(--tabc, var(--accent)), var(--tabc, var(--accent)));
     background-repeat:no-repeat; background-size:var(--pct) 100%;
   }
   input[type="range"]:disabled{opacity:0.35;}
   input[type="range"]::-webkit-slider-thumb{
-    appearance:none; width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer;
+    appearance:none; width:13px; height:13px; border-radius:50%; background:var(--tabc, var(--accent)); cursor:pointer;
     border:2px solid var(--bg);
   }
   input[type="range"]::-moz-range-thumb{
-    width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--bg);
+    width:13px; height:13px; border-radius:50%; background:var(--tabc, var(--accent)); cursor:pointer; border:2px solid var(--bg);
   }
   .default-tick{position:absolute; top:50%; width:2px; height:9px; transform:translate(-50%,-50%); background:var(--muted2); opacity:0.9; border-radius:1px; pointer-events:none;}
 
@@ -228,18 +234,27 @@
      Pas d'interrupteur propre — ils suivent l'interrupteur de la carte principale. */
   .subparams{display:flex; flex-direction:column; gap:7px; padding-top:7px; border-top:1px dashed var(--border);}
   .subparams-title{font-size:0.64rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted2);}
-  .subfield{display:flex; flex-direction:column; gap:3px; background:rgba(45,212,191,0.05); border-radius:7px; padding:6px 8px;}
+  .subfield{display:flex; flex-direction:column; gap:3px; background:color-mix(in srgb, var(--tabc, var(--accent)) 5%, transparent); border-radius:7px; padding:6px 8px;}
   .subfield .sublbl{font-size:0.72rem; font-weight:600;}
   .subfield .subscope{font-size:0.66rem; color:var(--muted); line-height:1.4; margin:0;}
   .subfield .row{display:flex; justify-content:space-between; font-size:0.7rem; color:var(--muted);}
   .subfield .row .cur{color:var(--text); font-weight:700; font-variant-numeric:tabular-nums;}
   .subfield .bool-row{display:flex; align-items:center; gap:8px; font-size:0.72rem; color:var(--muted);}
 
-  /* ====== Onglets de catégorie (fiscalite/social/depenses/economie/competitivite) ====== */
-  .cat-tabs{display:flex; flex-wrap:wrap; gap:6px; max-width:1180px; margin:18px auto 0; padding:0 20px;}
-  .cat-tab{background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:7px 14px;
-    font-size:0.8rem; font-weight:700; cursor:pointer; color:var(--muted);}
-  .cat-tab.active{background:var(--accent); color:#0b1210; border-color:var(--accent);}
+  /* ====== Onglets de catégorie (fiscalite/social/depenses/economie/competitivite) ======
+     Une couleur distincte par thématique (même repliée/inactive) pour qu'on voie au premier
+     coup d'œil qu'il y a 5 catégories différentes, pas seulement "Fiscalité" en avant. */
+  .cat-tabs-label{max-width:1180px; margin:34px auto 0; padding:0 20px; font-size:0.78rem;
+    font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted2); text-align:center;}
+  .cat-tabs{display:flex; flex-wrap:wrap; justify-content:center; gap:14px; max-width:1180px;
+    margin:28px auto 34px; padding:0 20px;}
+  .cat-tab{flex:1 1 180px; max-width:260px; background:var(--surface2); border:2px solid var(--tabc, var(--border));
+    border-radius:14px; padding:16px 20px; font-size:1.05rem; font-weight:800; cursor:pointer;
+    color:var(--tabc, var(--muted)); text-align:center;
+    transition:background 0.15s ease, color 0.15s ease, transform 0.1s ease;}
+  .cat-tab:hover{transform:translateY(-1px);}
+  .cat-tab.active{background:var(--tabc, var(--accent)); color:#0b1210; border-color:var(--tabc, var(--accent));}
+  @media (max-width:700px){ .cat-tab{flex:1 1 42%;} }
 
   /* ====== Panneau secondaire : Graphiques / Tableau / Analyse (décile) / Analyse (taille) ====== */
   .result-panel{max-width:1180px; margin:26px auto 0; padding:0 20px 10px;}
@@ -292,14 +307,13 @@
 <body>
 <header class="top">
   <div class="inner">
-    <h1>Simulateur Budget France</h1>
-    <p>
-      Moteur macro-budgétaire <a href="https://github.com/cturkieh/france-budget-simulateur" target="_blank" rel="noopener">france-budget-simulateur</a>
-      (AGPL-3.0, Cyril Turkieh) — instance officielle <a href="https://francebudget.fr" target="_blank" rel="noopener">francebudget.fr</a>.
-      Cette page ajoute trois couches absentes du projet d'origine : la ventilation de chaque mesure par décile de niveau
-      de vie, la ventilation par taille d'entreprise (MIC/PME/ETI/GE), et la comparaison à des scénarios prédéfinis — le
-      moteur de calcul lui-même n'est pas modifié (voir <code>CHANGES.md</code>).
-    </p>
+    <h1>Simulateur interactif – Budget de l'État 2030</h1>
+  </div>
+  <div class="note" id="baseline-explainer" style="background:rgba(248,113,113,0.1); border-color:rgba(248,113,113,0.4);">
+    <b>Pourquoi le déficit se dégrade même sans rien toucher ?</b><br><br>
+    Sans aucune nouvelle mesure, les finances publiques seront <b>au moins</b> celles présentées
+    ci-dessous en 2030 <span id="baseline-explainer-text"></span>— c'est la dynamique naturelle du
+    budget (dette, intérêts, dépenses) qui s'applique déjà, avant même d'activer un levier.
   </div>
   <div class="note" id="api-error-banner" style="display:none; background:rgba(248,113,113,0.1); border-color:rgba(248,113,113,0.4);">
     <b>API injoignable</b> — ouvre cette page via le serveur uvicorn (ex. <code>http://127.0.0.1:PORT/ui/index.html</code>), pas en fichier local direct.
@@ -345,9 +359,10 @@
 </div>
 
 
+<div class="cat-tabs-label">5 thématiques — choisissez-en une</div>
 <div class="cat-tabs" id="cat-tabs"></div>
 <main id="themes"></main>
-<div style="max-width:1180px; margin:10px auto 0; padding:0 20px;">
+<div style="max-width:1180px; margin:10px auto 0; padding:0 20px; text-align:center;">
   <button class="reset" id="reset-btn">Réinitialiser tous les leviers</button>
 </div>
 
@@ -395,17 +410,20 @@
 </div>
 
 <div class="foot-note">
-  Méthode (onglets Analyse) : le moteur calcule le delta Md€ net de chaque mesure (recettes − dépenses, dernière année où
-  la mesure a un effet) ; cette page ne recalcule pas ce delta, elle le reprend tel quel et le répartit selon des clés de
-  ventilation sourcées — par décile de niveau de vie (CPO/Boutchenik 2015, DG Trésor Trésor-Éco n°371, DREES, Insee,
-  <code>budget_simulator/decile.py</code>) et, pour la nouvelle couche « Analyse (taille) », par catégorie d'entreprise
-  MIC/PME/ETI/GE (INSEE Références « Les entreprises en France » 2023, DGFiP, périmètres légaux des dispositifs ciblant les
-  grandes entreprises — <code>budget_simulator/ventilation_taille.py</code>). Les mesures sans clé sourcée restent
-  volontairement non ventilées plutôt que de recevoir une hypothèse inventée. Le tableau d'impact (onglet Tableau) affiche
-  le delta net de la <strong>dernière année simulée</strong> pour chaque levier actif ; le type (recette/dépense/mixte)
-  vient du champ <code>cible</code> déclaré dans <code>policy_measures.json</code>. Licence du moteur : AGPL-3.0 — cette
-  extension (ventilation décile, ventilation par taille, interface compacte, comparaison de scénarios) est publiée dans le
-  même esprit.
+  Méthode (onglets Analyse) : le calcul de delta Md€ net de chaque mesure (recettes − dépenses, dernière année où la
+  mesure a un effet) n'est pas recalculé par cette page, qui le répartit selon des clés de ventilation sourcées — par
+  décile de niveau de vie (CPO/Boutchenik 2015, DG Trésor Trésor-Éco n°371, DREES, Insee) et par catégorie d'entreprise
+  MIC/PME/ETI/GE (INSEE Références « Les entreprises en France » 2023, DGFiP, périmètres légaux des dispositifs ciblant
+  les grandes entreprises). Les mesures sans clé sourcée restent volontairement non ventilées plutôt que de recevoir une
+  hypothèse inventée. Le tableau d'impact (onglet Tableau) affiche le delta net de la <strong>dernière année
+  simulée</strong> pour chaque levier actif. Tout est parfaitement sourcé, à l'exception des quelques cartes à
+  <span style="border:1px dashed var(--muted); border-radius:4px; padding:0 4px;">cadre pointillé</span>, dont la
+  ventilation est une estimation extrapolée plutôt qu'une table publiée pour cette mesure précise.
+  <br><br>
+  Basé sur <a href="https://github.com/cturkieh/france-budget-simulateur" target="_blank" rel="noopener">france-budget-simulateur</a>
+  (AGPL-3.0, Cyril Turkieh) — instance officielle <a href="https://francebudget.fr" target="_blank" rel="noopener">francebudget.fr</a>.
+  Cette extension (ventilation décile, ventilation par taille, interface compacte, comparaison de scénarios) est
+  publiée dans le même esprit.
   <br><br>
   <strong>Code source de cette version (obligation AGPL-3.0 §13)</strong> :
   <a href="https://github.com/VotePop/Budget2027" target="_blank" rel="noopener">https://github.com/VotePop/Budget2027</a>
@@ -429,10 +447,6 @@ const THEMES = [
           min:0, max:0.20, step:0.005, default:0.055, fmt:"pct1"},
          {param:"taux_particulier", key:"tva_rate__taux_particulier", label:"Taux particulier", scope:"Presse, médicaments remboursables par la Sécurité sociale.",
           min:0, max:0.10, step:0.001, default:0.021, fmt:"pct1"},
-       ],
-       folded:[
-         {id:"tva_energie", param:"taux", key:"tva_energie__taux", label:"TVA Énergie", scope:"Taux unique de TVA sur le gaz et l'électricité. Taux simulé librement.",
-          min:0, max:0.50, step:0.005, default:0.20, fmt:"pct1", decile:true, chiffrage:"24 Md€ / an", chiffrageMdEur:24},
        ]},
       {id:"impot_revenu", param:"taux_superieur", key:"impot_revenu__taux_superieur", label:"Impôt sur le revenu (barème)",
        scope:"Regroupe plusieurs curseurs de la même mesure fiscale : le taux marginal (tranche >160k€) et la décote (foyers modestes) sont 2 mécanismes indépendants, pas liés entre eux.",
@@ -447,8 +461,6 @@ const THEMES = [
           min:0.20, max:1.0, step:0.01, default:0.45, fmt:"pct0", chiffrage:"45% des foyers imposés"},
          {id:"abattement_retraites", param:"montant", key:"abattement_retraites__montant", label:"Abattement fiscal retraités", scope:"Remplace l'abattement de 10% (plafonné 4399€) par un forfait par personne. 0€ = système actuel inchangé.",
           min:0, max:10000, step:250, default:0, fmt:"eur", chiffrage:"régime actuel : abattement 10%"},
-         {id:"cdhr", param:"intensite", key:"cdhr__intensite", label:"CDHR (impôt minimum hauts revenus)", scope:"Contribution différentielle sur les hauts revenus (RFR >250k€ seul / 500k€ couple). 1,0 = régime actuel.",
-          min:0, max:1.5, step:0.1, default:1.0, fmt:"mult", decile:true, chiffrage:"rendement réel 2026 : 0,65 Md€/an", chiffrageMdEur:0.65},
        ]},
       {id:"csg", param:"taux", key:"csg__taux", label:"CSG / CRDS", scope:"Taux global de contribution sociale généralisée, sur une assiette large (revenus d'activité, remplacement, capital).",
        min:0.08, max:0.12, step:0.001, default:0.097, fmt:"pct1", decile:true, chiffrage:"≈153 Md€ / an", chiffrageMdEur:153,
@@ -458,6 +470,14 @@ const THEMES = [
       {id:"cotisations_salariales", param:"baisse_points", key:"cotisations_salariales__baisse_points", label:"Cotisations salariales",
        scope:"Variation du taux de cotisations sociales salariales. Positif = baisse, négatif = hausse.",
        min:-3, max:5, step:0.5, default:0, fmt:"ptssigned", decile:true, chiffrage:"taux actuel 22%"},
+      {id:"quotient_familial", param:"plafond", key:"quotient_familial__plafond", label:"Quotient familial",
+       scope:"Plafond de l'avantage du quotient familial par demi-part additionnelle. 1791€ = régime actuel (impôt 2025, Légifiscal/Sénat). Historique : 2336€ (2012) → 2000€ (2013) → 1500€ (2014, indexé depuis). Coût total du dispositif (hors conjugal) : 19 Md€/an (Insee Analyses n°53, 2020). Non ventilé par décile.",
+       min:500, max:2336, step:50, default:1791, fmt:"eur", decile:false,
+       chiffrage:"régime actuel : plafond 1791€/demi-part"},
+      {id:"quotient_conjugal", param:"intensite", key:"quotient_conjugal__intensite", label:"Quotient conjugal",
+       scope:"Individualisation de l'impôt sur le revenu des couples mariés/pacsés. 0% = statu quo (imposition commune, 2 parts). 100% = individualisation complète (+7,2 Md€/an, Insee Économie et Statistique n°526-527, 2021). Coût total du dispositif conjugal : 10,8 Md€/an. Mesure distincte du quotient familial. Non ventilé par décile.",
+       min:0, max:1, step:0.05, default:0, fmt:"pct0", decile:false,
+       chiffrage:"0% (statu quo, imposition commune)", chiffrageMdEur:0},
     ]
   },
   {
@@ -496,27 +516,25 @@ const THEMES = [
     ]
   },
   {
-    cat:"fiscalite", key:"complements_fiscaux_2026_10", label:"📐 Autres mesures fiscales (lot 2026-10)",
-    sub:"Quotient familial et conjugal, alignement PFU/barème, accises et taxe patrimoniale \"Zucman\" — 5 mesures ajoutées à ce moteur après la construction de la maquette Fiscalité.",
+    cat:"fiscalite", key:"climat_energie", label:"🌍 Fiscalité climat, énergie & consommation",
+    sub:"TVA énergie et accises (carburants, tabac, alcool) — la fiscalité qui pèse sur la consommation courante.",
     levers:[
-      {id:"quotient_familial", param:"plafond", key:"quotient_familial__plafond", label:"Quotient familial",
-       scope:"Plafond de l'avantage du quotient familial par demi-part additionnelle. 1791€ = régime actuel (impôt 2025, Légifiscal/Sénat). Historique : 2336€ (2012) → 2000€ (2013) → 1500€ (2014, indexé depuis). Rendement calé sur la seule baisse réelle chiffrée (2000€→1500€, PLF 2014 : +1,03 Md€). Coût total du dispositif (hors conjugal) : 19 Md€/an (Insee Analyses n°53, 2020). Non ventilé par décile (pas de clé sourcée séparément pour ce levier).",
-       min:500, max:2336, step:50, default:1791, fmt:"eur", decile:false,
-       chiffrage:"régime actuel : plafond 1791€/demi-part"},
-      {id:"quotient_conjugal", param:"intensite", key:"quotient_conjugal__intensite", label:"Quotient conjugal",
-       scope:"Individualisation de l'impôt sur le revenu des couples mariés/pacsés. 0% = statu quo (imposition commune, 2 parts). 100% = individualisation complète avec option de rattachement des enfants (+7,2 Md€/an, Insee Économie et Statistique n°526-527, 2021, Allègre et al.). Coût total du dispositif conjugal : 10,8 Md€/an. Mesure distincte du quotient familial (mécanisme différent, sourcée séparément). Non ventilé par décile.",
-       min:0, max:1, step:0.05, default:0, fmt:"pct0", decile:false,
-       chiffrage:"0% (statu quo, imposition commune)", chiffrageMdEur:0},
-      {id:"pfu_bareme", param:"intensite", key:"pfu_bareme__intensite", label:"Alignement PFU / barème progressif",
-       scope:"Retour au barème progressif de l'IR pour les revenus du capital au lieu du prélèvement forfaitaire unique (PFU, 30%). 0% = PFU maintenu (statu quo). 100% = retour intégral au barème : rendement brut 1,55 Md€ (milieu fourchette 1,4-1,7 Md€, France Stratégie / Sénat n°19-042-1), net d'un facteur comportemental 0,85 (rebond de distribution de dividendes, IPP). Non ventilé par décile.",
-       min:0, max:1, step:0.05, default:0, fmt:"pct0", decile:false,
-       chiffrage:"0% (PFU maintenu à 30%)", chiffrageMdEur:0},
+      {id:"tva_energie", param:"taux", key:"tva_energie__taux", label:"TVA Énergie", scope:"Taux unique de TVA sur le gaz et l'électricité. Taux simulé librement.",
+       min:0, max:0.50, step:0.005, default:0.20, fmt:"pct1", decile:true, chiffrage:"24 Md€ / an", chiffrageMdEur:24},
       {id:"accises", param:"variation_pct", key:"accises__variation_pct", label:"Accises (TICPE + tabac + alcool)",
-       scope:"Variation relative du niveau des 3 droits d'accise (TICPE carburants, tabac, alcools), appliquée identiquement aux 3 composantes — distincte des taux de TVA. Assiette 49,0 Md€/an (TICPE 30,5 + tabac 13,95 + alcools 4,565, Sénat rapport n°638/DGDDI). Élasticité-prix -0,4 (Sénat n°638, tabac, étendue par analogie). Régressif : taux d'effort de 4,3% du revenu pour les 10% les plus modestes contre 1,3% pour les 10% les plus aisés (Insee ES413, Ruiz & Trannoy 2008) — non ventilé par décile faute de revenu moyen par décile publié dans la même étude.",
+       scope:"Variation relative du niveau des 3 droits d'accise (TICPE carburants, tabac, alcools), appliquée identiquement aux 3 composantes — distincte des taux de TVA. Assiette 49,0 Md€/an (TICPE 30,5 + tabac 13,95 + alcools 4,565, Sénat rapport n°638/DGDDI). Régressif : taux d'effort de 4,3% du revenu pour les 10% les plus modestes contre 1,3% pour les 10% les plus aisés (Insee ES413, Ruiz & Trannoy 2008) — non ventilé par décile faute de revenu moyen par décile publié dans la même étude.",
        min:-0.3, max:0.5, step:0.01, default:0, fmt:"pct0signed", decile:false,
        chiffrage:"0% (niveau actuel, assiette 49,0 Md€/an)", chiffrageMdEur:0},
+    ]
+  },
+  {
+    cat:"fiscalite", key:"hauts_revenus_capital", label:"💎 Fiscalité des hauts revenus & du capital",
+    sub:"Impôt minimum sur les hauts revenus, taxe patrimoniale \"Zucman\" et alignement PFU/barème progressif sur les revenus du capital.",
+    levers:[
+      {id:"cdhr", param:"intensite", key:"cdhr__intensite", label:"CDHR (impôt minimum hauts revenus)", scope:"Contribution différentielle sur les hauts revenus (RFR >250k€ seul / 500k€ couple). 1,0 = régime actuel.",
+       min:0, max:1.5, step:0.1, default:1.0, fmt:"mult", decile:true, chiffrage:"rendement réel 2026 : 0,65 Md€/an", chiffrageMdEur:0.65},
       {id:"taxe_zucman", param:"intensite", key:"taxe_zucman__intensite", label:"Taxe \"Zucman\"",
-       scope:"Plancher d'imposition de 2% sur le patrimoine net des foyers détenant plus de 100 M€ (proposition Gabriel Zucman, rapport G20 2024). 0% = non appliquée, 100% = taux plein. DEUX estimations de rendement délibérément exposées : proposant (Zucman) 20 Md€/an ±5 Md€, contre-estimation iFRAP 2-3 Md€/an (double imposition non défalquée, IS déjà payé par les sociétés détenues via holdings) — le réglage fin ci-dessous pondère entre les deux. Risque constitutionnel documenté (censure 2012 d'un taux marginal 1,8% jugé confiscatoire par le Conseil constitutionnel). Ventilée à 100% sur D10 (estimation, cf. decile.py) ; non ventilée par taille d'entreprise (prudence assumée).",
+       scope:"Plancher d'imposition de 2% sur le patrimoine net des foyers détenant plus de 100 M€ (proposition Gabriel Zucman, rapport G20 2024). 0% = non appliquée, 100% = taux plein. DEUX estimations de rendement délibérément exposées : proposant (Zucman) 20 Md€/an ±5 Md€, contre-estimation iFRAP 2-3 Md€/an (double imposition non défalquée, IS déjà payé par les sociétés détenues via holdings) — le réglage fin ci-dessous pondère entre les deux. Risque constitutionnel documenté (censure 2012 d'un taux marginal 1,8% jugé confiscatoire par le Conseil constitutionnel). Ventilée à 100% sur D10 (estimation) ; non ventilée par taille d'entreprise (prudence assumée).",
        min:0, max:1, step:0.05, default:0, fmt:"pct0", decile:true,
        chiffrage:"0% (non appliquée)", chiffrageMdEur:0,
        subParams:[
@@ -524,6 +542,10 @@ const THEMES = [
           scope:"0 = rendement plein du proposant (20 Md€ au taux plein). 1 = rendement net de la critique iFRAP (2,5 Md€ au taux plein, double-comptage IS défalqué). Curseur assumé par ce moteur (pas une pondération publiée) pour situer le scénario entre les deux bornes sourcées.",
           min:0, max:1, step:0.1, default:0.5, fmt:"pct0"},
        ]},
+      {id:"pfu_bareme", param:"intensite", key:"pfu_bareme__intensite", label:"Alignement PFU / barème progressif",
+       scope:"Retour au barème progressif de l'IR pour les revenus du capital au lieu du prélèvement forfaitaire unique (PFU, 30%). 0% = PFU maintenu (statu quo). 100% = retour intégral au barème : rendement brut 1,55 Md€ (milieu fourchette 1,4-1,7 Md€, France Stratégie / Sénat n°19-042-1), net d'un facteur comportemental 0,85 (rebond de distribution de dividendes, IPP). Non ventilé par décile.",
+       min:0, max:1, step:0.05, default:0, fmt:"pct0", decile:false,
+       chiffrage:"0% (PFU maintenu à 30%)", chiffrageMdEur:0},
     ]
   },
 
@@ -540,8 +562,13 @@ const THEMES = [
           min:0.0, max:1.2, step:0.05, default:1.0, fmt:"pct0"},
          {param:"duree_cotisation", key:"retraites__duree_cotisation", label:"Durée de cotisation requise", scope:"Nombre d'années de cotisation nécessaires pour une retraite à taux plein.",
           min:40.0, max:45.0, step:0.5, default:42.5, fmt:"ans1"},
-         {param:"age_taux_plein", key:"retraites__age_taux_plein", label:"Âge du taux plein automatique", scope:"Âge auquel la décote s'annule automatiquement, quelle que soit la durée de cotisation (67 ans actuellement). Distinct de l'âge légal ci-dessus : ne concerne que les 8% de retraités qui liquident effectivement au taux plein par l'âge (DREES, Les retraités et les retraites, éd. 2025). NOUVEAU LEVIER (2026-10) : mécanisme de calcul (coefficient budgétaire proportionnel à cette part de population) non sourcé spécifiquement, non audité — voir CHANGES.md.",
+         {param:"age_taux_plein", key:"retraites__age_taux_plein", label:"Âge du taux plein automatique", scope:"Âge auquel la décote s'annule automatiquement, quelle que soit la durée de cotisation (67 ans actuellement). Distinct de l'âge légal ci-dessus : ne concerne que les 8% de retraités qui liquident effectivement au taux plein par l'âge (DREES, Les retraités et les retraites, éd. 2025). Mécanisme de calcul (coefficient budgétaire proportionnel à cette part de population) non sourcé spécifiquement, non audité.",
           min:62.0, max:70.0, step:0.25, default:67.0, fmt:"age"},
+       ],
+       folded:[
+         {id:"regimes_speciaux_retraite", param:"montant", key:"regimes_speciaux_retraite__montant", label:"Régimes spéciaux de retraite",
+          scope:"Subvention budgétaire directe de l'État aux régimes spéciaux de retraite (SNCF, RATP, marins ENIM, mineurs CANSSM, SEITA...), mission « Régimes sociaux et de retraite ». Total 6,0 Md€ en 2026 (Sénat, rapport PLF 2026), dont ~69% (4,1 Md€) pour les seuls régimes fermés SNCF/RATP. Distincte du régime général réglé ci-dessus. Non ventilée par décile de façon certaine (signe même de l'effet distributif non établi) : ventilation fournie à titre d'estimation prudente uniquement.",
+          min:0, max:8, step:0.1, default:6.0, fmt:"md1", decile:true, chiffrage:"6,0 Md€ / an (subvention actuelle)"},
        ]},
       {id:"chomage_alloc", param:"montant", key:"chomage_alloc__montant", label:"Assurance chômage",
        scope:"Budget total des allocations chômage versées. La durée maximale d'indemnisation et la dégressivité sont 2 curseurs de la même réforme, réglés ci-dessous.",
@@ -557,7 +584,7 @@ const THEMES = [
        min:1400, max:2200, step:50, default:1800, fmt:"eur", decile:false, cible:"mixte",
        chiffrage:"1800€ brut / mois (≈1398€ net)",
        subParams:[
-         {param:"indexation", key:"smic__indexation", label:"Indexation sur l'inflation", scope:"1 = SMIC suit sa trajectoire légale actuelle (statu quo). <1 = sous-indexation (érosion progressive du pouvoir d'achat du SMIC). >1 = coup de pouce récurrent au-delà de l'inflation. NOUVEAU LEVIER (2026-10) : élasticités reprises par analogie du curseur de montant brut — le rapport officiel France Stratégie 'Groupe d'experts SMIC' 2025 confirme qu'aucune élasticité dédiée n'est publiée. Non audité — voir CHANGES.md.",
+         {param:"indexation", key:"smic__indexation", label:"Indexation sur l'inflation", scope:"1 = SMIC suit sa trajectoire légale actuelle (statu quo). <1 = sous-indexation (érosion progressive du pouvoir d'achat du SMIC). >1 = coup de pouce récurrent au-delà de l'inflation. Élasticités reprises par analogie du curseur de montant brut — le rapport officiel France Stratégie 'Groupe d'experts SMIC' 2025 confirme qu'aucune élasticité dédiée n'est publiée. Non audité.",
           min:0.0, max:1.2, step:0.05, default:1.0, fmt:"pct0"},
        ]},
       {id:"exonerations_salaires", param:"intensite", key:"exonerations_salaires__intensite", label:"Exonérations sur hausses de salaires",
@@ -565,7 +592,7 @@ const THEMES = [
        min:0, max:1, step:0.1, default:0, fmt:"pct0", decile:false, cible:"depenses",
        chiffrage:"0% aujourd'hui (pas d'exonération)"},
       {id:"exoneration_heures_sup", param:"taux", key:"exoneration_heures_sup__taux", label:"Exonération patronale heures > 35h",
-       scope:"Exonération de cotisations patronales sur les heures travaillées au-delà de 35h/semaine, de 0 (aucune exonération, statu quo) à 1 (exonération totale). NOUVEAU LEVIER (2026-10) : base de cotisations ≈4,17 Md€/an (650M heures sup/an, DARES Acemo 2016 cité par OFCE × salaire horaire brut moyen 23,75€, INSEE 10/2025 × 27% cotisations patronales), aucun effet emploi modélisé (littérature TEPA ambiguë) — voir CHANGES.md.",
+       scope:"Exonération de cotisations patronales sur les heures travaillées au-delà de 35h/semaine, de 0 (aucune exonération, statu quo) à 1 (exonération totale). Base de cotisations ≈4,17 Md€/an (650M heures sup/an, DARES Acemo 2016 cité par OFCE × salaire horaire brut moyen 23,75€, INSEE 10/2025 × 27% cotisations patronales), aucun effet emploi modélisé (littérature TEPA ambiguë).",
        min:0, max:1, step:0.1, default:0, fmt:"pct0", decile:false, cible:"recettes",
        chiffrage:"0% aujourd'hui (pas d'exonération)"},
     ]
@@ -599,28 +626,18 @@ const THEMES = [
       {id:"prestations_indexation", param:"taux_indexation", key:"prestations_indexation__taux_indexation", label:"Indexation des prestations sociales",
        scope:"Part de l'inflation répercutée sur le RSA, les APL et les allocations familiales (1 = indexation intégrale, niveau actuel).",
        min:0.0, max:1.2, step:0.05, default:1.0, fmt:"pct0", decile:true, cible:"depenses",
-       chiffrage:"indexation actuelle : 100% de l'inflation"},
+       chiffrage:"indexation actuelle : 100% de l'inflation",
+       folded:[
+         {id:"coupe_prestations", param:"taux_coupe", key:"coupe_prestations__taux_coupe", label:"Coupe des prestations sociales",
+          scope:"Coupe directe et immédiate d'un pourcentage du montant versé (RSA, APL, allocations familiales, prime d'activité), sur la même assiette que l'indexation ci-dessus (90 Md€). Distincte de l'indexation (qui pilote le taux de compensation de l'inflation, pas une coupe de niveau) — les deux sont cumulables. Ventilée par décile, très concentrée D1-D2.",
+          min:0, max:0.2, step:0.01, default:0, fmt:"pct0", decile:true, cible:"depenses", chiffrage:"0% (statu quo)", chiffrageMdEur:0},
+       ]},
       {id:"fraude_sociale", param:"effort", key:"fraude_sociale__effort", label:"Lutte contre la fraude sociale",
        scope:"Intensité des contrôles (RSA, APL, arrêts maladie abusifs), de 0 (statu quo) à 1 (effort maximal).",
        min:0, max:1, step:0.1, default:0, fmt:"pct0", decile:false, cible:"depenses",
        chiffrage:"gisement estimé 13 Md€"},
     ]
   },
-  {
-    cat:"social", key:"prestations_regimes_2026_10", label:"💸 Prestations et régimes spéciaux (lot 2026-10)",
-    sub:"Coupe directe des prestations sociales et subvention d'équilibre aux régimes spéciaux de retraite — 2 mesures ajoutées après la construction de la maquette Social.",
-    levers:[
-      {id:"coupe_prestations", param:"taux_coupe", key:"coupe_prestations__taux_coupe", label:"Coupe des prestations sociales",
-       scope:"Coupe directe et immédiate d'un pourcentage du montant versé (RSA, APL, allocations familiales, prime d'activité), sur la même assiette que l'indexation des prestations (90 Md€ : RSA 12 + APL 15 + allocations familiales 50 + autres 13, PLFSS 2026/DREES/OFCE/IPP). Distincte de « Indexation prestations sociales » (qui pilote le taux de compensation de l'inflation, pas une coupe de niveau) — les deux sont cumulables. Ventilée par décile avec la même clé sourcée (DSS/DREES REPSS Famille éd. 2025), très concentrée D1-D2.",
-       min:0, max:0.2, step:0.01, default:0, fmt:"pct0", decile:true, cible:"depenses",
-       chiffrage:"0% (statu quo)", chiffrageMdEur:0},
-      {id:"regimes_speciaux_retraite", param:"montant", key:"regimes_speciaux_retraite__montant", label:"Régimes spéciaux de retraite",
-       scope:"Subvention budgétaire directe de l'État aux régimes spéciaux de retraite (SNCF, RATP, marins ENIM, mineurs CANSSM, SEITA...), mission « Régimes sociaux et de retraite ». Total 6,0 Md€ en 2026 (Sénat, rapport PLF 2026), dont ~69% (4,1 Md€) pour les seuls régimes fermés SNCF/RATP. Distincte de « Réforme des retraites » (paramètres du régime général). Non ventilée par décile de façon certaine (signe même de l'effet distributif non établi — certaines pensions, ex. SNCF, sont supérieures à la moyenne du régime général) : ventilation fournie à titre d'estimation prudente uniquement.",
-       min:0, max:8, step:0.1, default:6.0, fmt:"md1", decile:true, cible:"depenses",
-       chiffrage:"6,0 Md€ / an (subvention actuelle)"},
-    ]
-  },
-
   {
     cat:"depenses", key:"etat_fonction_publique", label:"🏛️ État & fonction publique",
     sub:"Effectifs et salaires de la fonction publique, réforme structurelle de l'État, optimisation de la dette et rabot budgétaire uniforme.",
@@ -761,18 +778,18 @@ const THEMES = [
 
 // ====== Catégories (onglets du panneau de gauche) ======
 const CATS = [
-  {id:"fiscalite", label:"Fiscalité"},
-  {id:"social", label:"Social"},
-  {id:"depenses", label:"Dépenses"},
-  {id:"economie", label:"Économie"},
-  {id:"competitivite", label:"Compétitivité"},
+  {id:"fiscalite", label:"💰 Fiscalité", color:"var(--accent)"},
+  {id:"social", label:"🧑‍🤝‍🧑 Social", color:"var(--accent2)"},
+  {id:"depenses", label:"🏛️ Dépenses", color:"var(--blue)"},
+  {id:"economie", label:"🌱 Économie", color:"var(--green)"},
+  {id:"competitivite", label:"🏢 Compétitivité", color:"var(--pink)"},
 ];
 let activeCat = CATS[0].id;
 
 function buildCatTabs(){
   const root = document.getElementById("cat-tabs");
   if (!root) return;
-  root.innerHTML = CATS.map(c => `<button class="cat-tab${c.id===activeCat?" active":""}" data-cat="${c.id}">${c.label}</button>`).join("");
+  root.innerHTML = CATS.map(c => `<button class="cat-tab${c.id===activeCat?" active":""}" style="--tabc:${c.color}" data-cat="${c.id}">${c.label}</button>`).join("");
   root.querySelectorAll("[data-cat]").forEach(btn => {
     btn.addEventListener("click", () => {
       activeCat = btn.dataset.cat;
@@ -954,7 +971,7 @@ function renderDecileTable(decile){
   } else {
     root.innerHTML = `<tr><th>Mesure</th><th>Total (Md€)</th><th>Source</th></tr>` +
       rows.map(([m, d]) => `<tr>
-        <td>${m}${d.estimation ? ' <span class="badge-chip warn" title="Estimation : clé de ventilation non publiée au niveau de cette mesure précise, cf. decile.py.">⚠ estimation</span>' : ''}${d.note_rapprochement ? ' <span class="badge-chip warn" title="'+d.note_rapprochement.replace(/"/g,'&quot;')+'">⚠ rapprochement</span>' : ''}</td>
+        <td>${m}${d.estimation ? ' <span class="badge-chip warn" title="Estimation : clé de ventilation non publiée au niveau de cette mesure précise.">⚠ estimation</span>' : ''}${d.note_rapprochement ? ' <span class="badge-chip warn" title="'+d.note_rapprochement.replace(/"/g,'&quot;')+'">⚠ rapprochement</span>' : ''}</td>
         <td>${d.total_md_eur.toFixed(2)}</td>
         <td class="result-src">${d.source}</td>
       </tr>`).join("");
@@ -1005,7 +1022,7 @@ function renderTailleTable(ventilTaille){
   } else {
     root.innerHTML = `<tr><th>Mesure</th><th>Total (Md€)</th><th>Source</th></tr>` +
       rows.map(([m, d]) => `<tr>
-        <td>${m}${d.estimation ? ' <span class="badge-chip warn" title="Estimation : clé de ventilation non publiée au niveau de cette mesure précise, cf. ventilation_taille.py.">⚠ estimation</span>' : ''}${d.note_rapprochement ? ' <span class="badge-chip warn" title="'+d.note_rapprochement.replace(/"/g,'&quot;')+'">⚠ rapprochement</span>' : ''}</td>
+        <td>${m}${d.estimation ? ' <span class="badge-chip warn" title="Estimation : clé de ventilation non publiée au niveau de cette mesure précise.">⚠ estimation</span>' : ''}${d.note_rapprochement ? ' <span class="badge-chip warn" title="'+d.note_rapprochement.replace(/"/g,'&quot;')+'">⚠ rapprochement</span>' : ''}</td>
         <td>${d.total_md_eur.toFixed(2)}</td>
         <td class="result-src">${d.source}</td>
       </tr>`).join("");
@@ -1375,12 +1392,20 @@ function renderCompareBar(row, baseline, decile, ventilTaille){
   renderTailleRow(ventilTaille ? ventilTaille.total_par_categorie : null);
 }
 
+function renderBaselineExplainer(results){
+  const el = document.getElementById("baseline-explainer-text");
+  if (!el || !results || !results.length) return;
+  const last = results[results.length - 1];
+  el.innerHTML = `(déficit <b>${last["Déficit/PIB %"].toFixed(2)}%</b> du PIB, dette <b>${last["Dette/PIB %"].toFixed(1)}%</b> du PIB) `;
+}
+
 async function ensureBaseline(){
   try{
     const data = await callSimulate({});
     baselineResults = data.results;
     baselineKpis = lastRow(data.results);
     renderCompareBar(baselineKpis, baselineKpis);
+    renderBaselineExplainer(data.results);
     baselineReady = true;
     setApiError(false);
   }catch(e){ console.error(e); setApiError(true); }
@@ -1572,6 +1597,14 @@ function subparamHtml(sp, parentOn){
     </div>`;
 }
 
+// Mesures dont la ventilation décile et/ou taille est une estimation/extrapolation (flag
+// "estimation": true côté moteur, budget_simulator/decile.py et ventilation_taille.py) plutôt
+// qu'une table publiée pour cette mesure précise — affichées en cadre pointillé (voir la note
+// de bas de page).
+const ESTIMATION_IDS = new Set(["cotisations_patronales", "elargissement_ir", "exonerations_salaires",
+  "fonction_publique", "fonction_publique_reforme", "impot_revenu", "regimes_speciaux_retraite",
+  "smic", "taxe_zucman", "transition_ecologique"]);
+
 function leverHtml(item, subParams){
   const st = state[item.key];
   // Badge "décile" retiré du slot replié (demande explicite : il prenait de la place
@@ -1581,8 +1614,9 @@ function leverHtml(item, subParams){
       <div class="subparams-title">Réglages fins (même mesure)</div>
       ${subParams.map(sp => subparamHtml(sp, st.on)).join("")}
     </div>` : "";
+  const estClass = ESTIMATION_IDS.has(item.id) ? " estimation" : "";
   return `
-    <div class="lever" data-lever="${item.key}">
+    <div class="lever${estClass}" data-lever="${item.key}">
       <div class="lever-row">
         <div class="lever-main">
           <span class="lever-label" data-open="${item.key}">${item.label}</span>
@@ -1606,6 +1640,8 @@ function leverHtml(item, subParams){
 }
 
 function render(){
+  const activeColor = (CATS.find(c => c.id === activeCat) || {}).color || "var(--accent)";
+  document.getElementById("themes").style.setProperty("--tabc", activeColor);
   document.getElementById("themes").innerHTML = THEMES.filter(t => t.cat === activeCat).map(t => {
     const {on, total} = countActive(t);
     const cards = t.levers.map(l =>
