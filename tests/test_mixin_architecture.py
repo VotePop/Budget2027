@@ -42,7 +42,17 @@ HANDLERS_DIR = ROOT / 'budget_simulator' / 'handlers'
 # Signature d'appel du Protocol Handler (handlers/_types.py), self exclu
 # car measure_handlers stocke des méthodes LIÉES.
 _HANDLER_PARAMS = ('measure', 'params', 'year', 'gdp', 'inflation', 'unemployment')
-_EXPECTED_HANDLER_COUNT = 33
+_EXPECTED_HANDLER_COUNT = 46  # NOTE 2026-10 : déjà périmé à 37 avant le lot précédent (5
+# leviers fork VotePop jamais reflétés ici : ttf/taxe_gafa/cdhr/taxe_holdings_patrimoniales/
+# rabot_uniforme) ; +1 pour exoneration_heures_sup (lot précédent, cf
+# handlers/nouveaux_leviers_sociaux_2026.py) ; +5 pour le lot "grille de tri 12 pistes"
+# (quotient_familial, quotient_conjugal, pfu_bareme, taxe_zucman, coupe_prestations, cf
+# handlers/fiscalite_menages.py, handlers/nouvelles_taxes_2027.py, handlers/depenses.py) ;
+# +1 pour `accises` (lot 2026-10 "accise ok", cf handlers/fiscalite_menages.py) ; +2 pour
+# le lot "audit comparatif" (credit_impot_recherche, regimes_speciaux_retraite, cf
+# handlers/investissements.py, handlers/depenses.py). Constante
+# maintenue à la main, PAS générée par
+# scripts/generate_measure_registry.py (indépendante de frontend-react/).
 
 
 def _cross_handler_calls(path: Path):

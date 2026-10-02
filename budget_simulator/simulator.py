@@ -25,6 +25,8 @@ from .handlers.efficience import EfficienceMixin
 from .handlers.fiscalite_menages import FiscaliteMenagesMixin
 from .handlers.investissements import InvestissementsMixin
 from .handlers.montaigne import MontaigneMixin
+from .handlers.nouveaux_leviers_sociaux_2026 import NouveauxLeviersSociaux2026Mixin
+from .handlers.nouvelles_taxes_2027 import NouvellesTaxes2027Mixin
 from .handlers._types import Handler
 
 from .engine.inflation import InflationMixin
@@ -344,6 +346,7 @@ class FiscalMultipliers:
 
 # === MOTEUR ÉCONOMIQUE PRINCIPAL V4.5 AJUSTÉ ===
 class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin, FiscaliteMenagesMixin, CompetitiviteMixin, DepensesMixin, EfficienceMixin,
+                         NouvellesTaxes2027Mixin, NouveauxLeviersSociaux2026Mixin,
                          InflationMixin, UnemploymentMixin, RevenuesMixin, DebtMixin,
                          ExpendituresMixin, MicroImpactsMixin, GrowthMixin,
                          OrchestratorMixin):
@@ -575,8 +578,27 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             'tva_energie': self._apply_tva_energie,
             'taxe_superprofits': self._apply_taxe_superprofits,
             'exonerations_salaires': self._apply_exonerations_salaires,
+            # NOUVEAUX LEVIERS FISCAUX 2026-10 (fork VotePop, absents du moteur original)
+            'ttf': self._apply_ttf,
+            'taxe_gafa': self._apply_taxe_gafa,
+            'cdhr': self._apply_cdhr,
+            'taxe_holdings_patrimoniales': self._apply_taxe_holdings_patrimoniales,
             # SCÉNARIOS INSTITUT MONTAIGNE
             'rabot_uniforme': self._apply_rabot_uniforme,
+            # NOUVEAUX LEVIERS SOCIAUX 2026-10 (fork VotePop, demande utilisateur)
+            'exoneration_heures_sup': self._apply_exoneration_heures_sup,
+            # NOUVEAUX LEVIERS 2026-10 (lot "grille de tri 12 pistes", fork VotePop)
+            'quotient_familial': self._apply_quotient_familial,
+            'quotient_conjugal': self._apply_quotient_conjugal,
+            'pfu_bareme': self._apply_pfu_bareme,
+            'taxe_zucman': self._apply_taxe_zucman,
+            'coupe_prestations': self._apply_coupe_prestations,
+            # ACCISES (TICPE+tabac+alcool) — ajouté 2026-10, demande utilisateur "accise ok"
+            'accises': self._apply_accises,
+            # LEVIERS AUDIT COMPARATIF 2026-10 (fork VotePop, vs autres simulateurs citoyens
+            # dont Institut Montaigne "Atelier des finances publiques" 2015-2017)
+            'credit_impot_recherche': self._apply_credit_impot_recherche,
+            'regimes_speciaux_retraite': self._apply_regimes_speciaux_retraite,
         }
         self.validator = EconomicValidator()
         self.multipliers = FiscalMultipliers()

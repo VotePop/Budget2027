@@ -1662,3 +1662,432 @@ GINI_RENOVATION_PAR_MD_EUR = -0.00034   # -0,0017 de Gini pour +5 Md EUR
 # Reste au chantier v0.7 la re-dérivation de GINI_IMPACT_SCALE (§ B.4-33 :
 # « non calculable en l'état », « ne pas bricoler ») — elle n'a jamais dépendu
 # de ce fallback.
+
+# ===========================================================================
+# === NOUVEAUX LEVIERS SOCIAUX 2026-10 (fork VotePop, demande utilisateur) ===
+# ===========================================================================
+# 3 leviers absents du moteur d'origine ET du fork avant ce lot. Sourcés le
+# 2026-10 (recherche web ciblée, sources primaires citées ci-dessous pour
+# chaque donnée). Les MÉCANISMES de calcul (modèle linéaire, extrapolation
+# des élasticités d'un canal existant vers un canal nouveau) restent une
+# construction du moteur, PAS une élasticité dédiée publiée pour CES 3
+# mesures précises — même limite que handlers/nouvelles_taxes_2027.py. Les
+# PARAMÈTRES numériques (parts de population, volumes, salaires), eux, sont
+# désormais des statistiques officielles sourcées, pas des estimations à
+# vue de nez. À faire auditer avant toute mise en production réelle.
+
+# --- Âge de départ à taux plein automatique (sous-paramètre de `retraites`) -
+# Âge auquel la décote s'annule automatiquement quelle que soit la durée de
+# cotisation ("âge d'annulation de la décote", AAD). FIXE à 67 ans, PAS
+# concerné par la réforme 2023 (qui ne déplace que l'âge légal d'ouverture
+# des droits RETRAITES_REF_AGE_ANS) : contrairement à `age_depart`, une
+# référence CONSTANTE suffit ici, pas de calendrier. Source du seuil : Code
+# de la sécurité sociale, art. L351-8 (67 ans, générations nées à partir de
+# 1955).
+RETRAITES_REF_AGE_TAUX_PLEIN_ANS = 67.0
+
+# Coefficient budgétaire : une FRACTION seulement du barème d'âge légal
+# (RETRAITES_COEFF_AGE_MD_EUR) s'applique ici, car ce levier ne concerne QUE
+# les assurés qui liquident effectivement À l'âge d'annulation de la décote
+# (AAD) — pas l'ensemble des retraités (à la différence de `age_depart`, qui
+# déplace TOUT le monde). Source : DREES, « Les retraités et les retraites »,
+# édition 2025, fiche 17 « Les conditions de liquidation de la retraite »
+# (https://drees.solidarites-sante.gouv.fr/sites/default/files/2025-07/Fiche%2017%20-%20Les%20conditions%20de%20liquidation%20de%20la%20retraite.pdf) :
+# pour la génération née en 1953 (départs observés ~2020), 8 % des retraités
+# ont liquidé au taux plein PAR L'ÂGE (AAD), et 11 % avec une décote (ces
+# derniers ne sont PAS directement affectés par ce curseur : ils liquident
+# AVANT l'AAD, en acceptant la décote — leur comportement dépend plutôt de
+# `age_depart`/`duree_cotisation`). Fraction retenue = 0.08 (8 %), population
+# directement concernée par un déplacement de l'AAD. MÉCANISME DE CALCUL
+# (fraction appliquée au coefficient Md€/an de `age_depart`) non sourcé en
+# tant que tel — pas d'étude chiffrant directement l'effet budgétaire d'un
+# déplacement de l'AAD — mais la part de population, elle, est une
+# statistique DREES officielle, pas une estimation.
+RETRAITES_COEFF_AGE_TAUX_PLEIN_MD_EUR = RETRAITES_COEFF_AGE_MD_EUR * 0.08  # ≈ 0.48 Md€/an
+
+# Effet redistributif : même mécanisme que l'âge légal (mortalité
+# différentielle), sur la même population restreinte → même fraction 0.08
+# (DREES 2025, cf ci-dessus) appliquée à RETRAITES_GINI_PAR_ANNEE_ECART.
+RETRAITES_GINI_PAR_ANNEE_ECART_TAUX_PLEIN = RETRAITES_GINI_PAR_ANNEE_ECART * 0.08
+
+# --- Indexation du SMIC sur l'inflation (sous-paramètre de `smic`) ---------
+# Le moteur ne modélisait jusqu'ici que des changements de NIVEAU du SMIC
+# brut (`montant_brut`, effets one-time, cf handlers/additionnels.py). Ce
+# curseur ajoute une dérive CUMULATIVE par rapport à la trajectoire légale
+# (indexation = 1.0 = SMIC suit l'inflation comme actuellement ; < 1.0 =
+# sous-indexation/désindexation partielle ; > 1.0 = sur-indexation, coup de
+# pouce récurrent). MÉCANISME : réutilise les élasticités déjà calibrées pour
+# le canal `montant_brut` (OFCE Plane 2014, IPP Bozio 2018, DG Trésor 2023,
+# Kramarz & Philippon 2001), appliquées à l'écart CUMULÉ d'indexation plutôt
+# qu'à un saut de niveau — EXTRAPOLATION ASSUMÉE, documentée comme telle.
+# Recherche dédiée effectuée (2026-10) : le rapport officiel France
+# Stratégie, « Groupe d'experts SMIC », rapport 2025
+# (https://www.strategie-plan.gouv.fr/publications/groupe-dexperts-smic-rapport-2025)
+# recommande explicitement de ne pas dépasser l'indexation automatique par
+# précaution, mais NE CHIFFRE AUCUNE élasticité emploi/désindexation du SMIC
+# — confirmant qu'aucune meilleure source dédiée n'est disponible à ce jour,
+# d'où le choix de réutiliser par analogie les élasticités du canal
+# `montant_brut`. Anti double-comptage : ce canal ne touche PAS les
+# prestations indexées sur le SMIC (RSA, prime d'activité), qui restent dans
+# le périmètre de `prestations_indexation`/`asu`. Plateau de 10 ans, même
+# convention que `prestations_indexation`/`retraites`.
+SMIC_INDEXATION_PLATEAU_ANS = 10
+SMIC_INDEXATION_ELASTICITE_COTISATIONS = 0.45
+SMIC_INDEXATION_ELASTICITE_PA = 0.06
+SMIC_INDEXATION_ELASTICITE_COMPETITIVITE = 0.025
+SMIC_INDEXATION_ELASTICITE_CHOMAGE = 0.025
+SMIC_INDEXATION_SALARIES_PRIVES_MILLIONS = 2.7  # salariés au SMIC, secteur privé (DARES 2024)
+
+# --- Exonération patronale sur les heures au-delà de 35h/semaine -----------
+# NOUVELLE mesure indépendante (pas un sous-paramètre d'une mesure
+# existante) : exonère une fraction des cotisations PATRONALES sur les
+# heures travaillées au-delà de la durée légale hebdomadaire (35h). Base de
+# cotisations concernée calculée à partir de 2 statistiques officielles :
+# - Volume annuel d'heures supplémentaires, secteur privé : 650 millions
+#   d'heures (DARES, enquête Acemo 2016), chiffre cité et retenu par l'OFCE,
+#   « Désocialisation des heures supplémentaires : pouvoir d'achat pour les
+#   actifs, perte d'emplois pour l'économie »
+#   (https://www.ofce.sciences-po.fr/blog/lexoneration-partielle-cotisations-sociales-heures-supplementaires-mesure-de-pouvoir-dachat-actifs-perte-demplois-leconomie/).
+#   CORRECTION (2026-10) : la valeur initiale de ce lot (1,4 milliard
+#   d'heures) était une estimation à vue de nez, surestimant le volume réel
+#   d'un facteur ~2 — remplacée par cette statistique DARES/OFCE sourcée.
+# - Salaire horaire brut moyen, secteur privé, 2024 : 3 602 €/mois en
+#   équivalent temps plein (EQTP) ÷ 151,67 h/mois (35h × 52/12) ≈ 23,75 €/h.
+#   Source : INSEE, Insee Première n° 2079, octobre 2025, « Les salaires
+#   dans le secteur privé en 2024 » (https://www.insee.fr/fr/statistiques/8657156).
+# - Taux de cotisations patronales de référence 27 %, même taux que
+#   `cotisations_patronales` dans ce moteur (cohérence interne, pas une
+#   nouvelle source).
+# MÉCANISME (base de cotisations = heures × salaire × taux moyen, sans
+# distinguer la structure des allègements bas salaires sur ces heures)
+# reste une approximation assumée — les heures sup étant plutôt le fait de
+# salariés proches du salaire moyen que du SMIC, l'écart avec le taux
+# marginal réel (allègements Fillon dégressifs jusqu'à 1,6 SMIC) n'est pas
+# modélisé finement.
+EXONERATION_HEURES_SUP_HEURES_MILLIARDS = 0.65
+EXONERATION_HEURES_SUP_SALAIRE_HORAIRE_EUR = 23.75
+EXONERATION_HEURES_SUP_TAUX_COTIS_REF = 0.27
+EXONERATION_HEURES_SUP_BASE_MD_EUR = (
+    EXONERATION_HEURES_SUP_HEURES_MILLIARDS * EXONERATION_HEURES_SUP_SALAIRE_HORAIRE_EUR
+    * EXONERATION_HEURES_SUP_TAUX_COTIS_REF
+)  # ≈ 4.17 Md€/an
+
+# Impact compétitivité : même coefficient Md€ que `cotisations_patronales`
+# (DG Trésor 2019, -0.020 de point d'indice compétitivité par Md€ de baisse
+# de cotisations) — EXTRAPOLATION PAR ANALOGIE, pas une élasticité dédiée
+# "heures supplémentaires". Aucun effet emploi/chômage net modélisé : la
+# littérature sur les heures sup défiscalisées (loi TEPA 2007-2012) est
+# ambiguë sur l'arbitrage heures/embauches, et aucune élasticité consensuelle
+# n'a été identifiée pour ce lot — mieux vaut l'absence d'effet qu'un chiffre
+# inventé.
+EXONERATION_HEURES_SUP_COEFF_COMPETITIVITE = 0.020
+
+# === NOUVEAUX LEVIERS FISCAUX & SOCIAUX 2026-10 (lot "grille de tri 12 pistes",
+# demande utilisateur, comparaison avec Simulateur_Impact_Menages.xlsx) =======
+#
+# 5 mesures ajoutées, toutes absentes du moteur avant ce lot : quotient
+# familial, quotient conjugal, alignement PFU/barème, taxe "Zucman", coupe
+# des prestations sociales. AVERTISSEMENT identique aux lots fiscaux/sociaux
+# précédents (`nouvelles_taxes_2027.py`, `nouveaux_leviers_sociaux_2026.py`) :
+# modèle LINÉAIRE simple calibré sur un point de référence publié (rendement
+# mesuré ou estimé pour une réforme réelle, passée ou proposée), PAS une
+# élasticité comportementale dédiée publiée pour CE curseur précis — sauf
+# mention contraire explicite ci-dessous.
+
+# --- Quotient familial : abaissement du plafond de l'avantage -------------
+# Le plafond par demi-part additionnelle est un paramètre du barème IR déjà
+# modifié par le passé (PLF 2013 : 2336€->2000€ ; PLF 2014 : 2000€->1500€,
+# indexé depuis). Valeur en vigueur (revenus 2024, impôt 2025) : 1791€/demi-
+# part. Source : Légifiscal, « Impôts 2025 : les nouveaux plafonds de quotient
+# familial suite à la promulgation du budget 2025 »
+# (https://www.moneyvox.fr/impot/actualites/102040/) ; confirmé Sénat, rapport
+# PLF 2025 n°144 tome II (conditions générales de l'équilibre financier).
+#
+# RENDEMENT : le seul point de calibration réel disponible est la baisse
+# PLF 2014 elle-même (2000€->1500€, soit -500€), pour laquelle le gouvernement
+# avait chiffré un gain budgétaire de 1,03 Md€ (Légifiscal, « PLF 2014 :
+# abaissement du plafond de l'avantage procuré par le quotient familial »,
+# https://www.legifiscal.fr/actualites-fiscales/284-plf-2014-abaissement-du-plafond-de-lavantage-procure-par-le-quotient-familial.html).
+# On réutilise ce point comme coefficient linéaire €/Md€ (pas d'élasticité
+# comportementale propre publiée à notre connaissance) : rendement
+# proportionnel à l'écart au plafond actuel.
+QUOTIENT_FAMILIAL_PLAFOND_REF_EUR = 1791.0       # Plafond actuel (2025), Légifiscal/Sénat
+QUOTIENT_FAMILIAL_RENDEMENT_PAR_EURO_MD = 1.03 / 500.0  # Md€ par euro de baisse du plafond (PLF 2014)
+# Coût total du dispositif « quotient familial » (hors conjugal), pour borne
+# de réalisme du slider seulement (pas utilisé dans le calcul linéaire
+# ci-dessus) : 19,0 Md€/an — Insee Analyses n°53, juin 2020, « Les dispositifs
+# conjugaux et familiaux réduisent l'impôt sur le revenu de 29,7 milliards
+# d'euros » (https://www.insee.fr/fr/statistiques/4504961), décomposition
+# conjugal 10,8 Md€ / familial 19,0 Md€.
+QUOTIENT_FAMILIAL_COUT_TOTAL_MD_EUR = 19.0
+
+# --- Quotient conjugal : fusion/individualisation de l'IR des couples -----
+# Mesure structurelle distincte du quotient familial (mécanisme différent :
+# 2 parts pour le couple marié/pacsé vs parts additionnelles par enfant).
+# Coût du dispositif conjugal seul : 10,8 Md€/an (Insee Analyses n°53,
+# juin 2020, source ci-dessus) — sert de borne de réalisme au slider, pas
+# directement de rendement de la réforme (l'individualisation COMPLÈTE ne
+# récupère pas 100% de ce coût car les parts "enfants" restent attribuées).
+# RENDEMENT de la réforme d'individualisation complète (option de rattachement
+# des enfants conservée) : +7,2 Md€/an — Insee, Économie et Statistique
+# n°526-527 (2021), G. Allègre et al., simulation de 3 réformes du quotient
+# conjugal (scénario "individualisation complète avec option")
+# (https://www.insee.fr/fr/statistiques/fichier/5349530/01_ES526-527_Allegre-et-al_FR.pdf).
+# Les 2 autres scénarios du même papier (réduction à 1,5 part : 3,8-4,8 Md€ ;
+# plafonnement façon quotient familial : 2,9 Md€) ne sont PAS modélisés ici —
+# un seul curseur d'intensité interpole linéairement entre statu quo (0) et
+# individualisation complète (1), faute de source pour une interpolation
+# non-linéaire entre les 3 scénarios.
+QUOTIENT_CONJUGAL_COUT_TOTAL_MD_EUR = 10.8
+QUOTIENT_CONJUGAL_RENDEMENT_INDIVIDUALISATION_MD = 7.2
+
+# --- Alignement PFU / barème progressif pour les revenus du capital -------
+# Bilan de la création du PFU (2018) : coût permanent estimé par le comité
+# d'évaluation France Stratégie entre 1,4 et 1,7 Md€/an (Sénat, rapport
+# n°19-042-1, « Transformation de l'ISF en IFI et création du PFU : un
+# premier bilan », https://www.senat.fr/rap/r19-042-1/r19-042-110.html) —
+# on retient le milieu de fourchette, 1,55 Md€, comme rendement BRUT d'un
+# retour intégral au barème progressif (= annule le coût du PFU).
+# Effet dynamique mesuré par l'IPP (note n°46, octobre 2019, Bach/Bozio/Fabre,
+# https://www.ipp.eu/wp-content/uploads/2019/10/n46-notesIPP-octobre2019.pdf) :
+# le passage au PFU a généré un rebond de distribution de dividendes
+# (29,8 Md€ en 2017 -> 37,1 Md€ en 2018) produisant ~0,5 Md€ de recettes
+# IR+PS supplémentaires non anticipées par l'estimation statique initiale.
+# ESTIMATION (PAS une élasticité publiée pour le sens INVERSE de la réforme,
+# symétrie assumée) : un retour au barème réduirait symétriquement ce rebond
+# de distribution -> le rendement net récupérable est inférieur au coût
+# statique du PFU. Facteur retenu : récupération de 85% du rendement brut
+# (1 - 0,5/3,5, où 3,5 Md€ est le rendement PFU réellement constaté 2018,
+# cf. même rapport Sénat) — à défaut de mieux, documenté comme approximation.
+PFU_BAREME_RENDEMENT_BRUT_MD = 1.55
+PFU_BAREME_FACTEUR_COMPORTEMENTAL = 0.85
+
+# --- Taxe "Zucman" : plancher d'imposition 2% sur le patrimoine des très
+# hauts patrimoines (>100 M€) -----------------------------------------------
+# Proposition portée par Gabriel Zucman (rapport au G20, 2024) : taux plancher
+# de 2% sur le patrimoine net des foyers détenant plus de 100 M€ (environ
+# 1 800 foyers en France), avec mécanisme anti-optimisation visant notamment
+# les holdings "coquilles". Estimation de l'auteur : 20 Md€/an (± 5 Md€).
+# Sources estimation proposant : Public Sénat, « Taxe Zucman : quels sont les
+# arguments pour, et les arguments contre ? »
+# (https://www.publicsenat.fr/actualites/economie/taxe-zucman-quels-sont-les-arguments-pour-et-les-arguments-contre) ;
+# rejet de la mesure par le Sénat le 2025-11 (Public Sénat, « Le Sénat rejette
+# la création d'un nouvel impôt sur les ultra-riches »).
+#
+# CONTRE-ESTIMATION (critique sourcée, PAS une invention) : iFRAP, « Fiscalité
+# des riches : le mirage des milliards € de recettes »
+# (https://www.ifrap.org/la-revue/fiscalite-des-riches-le-mirage-des-milliards-eu-de-recettes)
+# chiffre un rendement RÉEL bien inférieur, 2 à 3 Md€/an, au motif que
+# l'estimation Zucman ne défalque pas l'IS déjà acquitté par les sociétés
+# détenues au niveau des holdings (double imposition du même résultat
+# économique : une fois à l'IS, une fois via le plancher patrimonial assis sur
+# la valeur des titres) — chiffre cohérent avec l'estimation indépendante
+# évoquée par des sénateurs lors des débats. Le Conseil constitutionnel avait
+# par ailleurs censuré en 2012 un taux marginal de 1,8% jugé confiscatoire
+# (même source Public Sénat) : risque constitutionnel documenté pour un seuil
+# à 2%.
+# MODÉLISATION : le slider d'intensité interpole linéairement entre 0 (statu
+# quo) et 1.0 (taux plein 2%, rendement BRUT proposant 20 Md€), puis applique
+# un facteur net choisi par l'utilisateur-analyste entre les deux bornes
+# publiées (brut proposant vs net critique) — AUCUNE des deux estimations
+# n'est présentée comme "the" bon chiffre dans le handler : les deux sont
+# exposées dans le tooltip, exactement comme les 2 rapports divergent dans la
+# réalité du débat parlementaire.
+TAXE_ZUCMAN_RENDEMENT_BRUT_PROPOSANT_MD = 20.0
+TAXE_ZUCMAN_RENDEMENT_NET_CRITIQUE_MD = 2.5  # milieu fourchette 2-3 Md€ (iFRAP)
+TAXE_ZUCMAN_SEUIL_PATRIMOINE_M_EUR = 100.0
+TAXE_ZUCMAN_FOYERS_CONCERNES = 1_800
+
+# --- Coupe des prestations sociales (magnitude directe, PAS l'indexation) --
+# Distinct de `prestations_indexation` (qui ne pilote QUE le taux de
+# compensation de l'inflation, effet d'érosion composée) : ce levier modélise
+# une coupe DIRECTE et IMMÉDIATE d'un pourcentage du montant versé, sans
+# attendre l'inflation. Même périmètre et même base que
+# `prestations_indexation` par cohérence interne (RSA 12 + APL 15 +
+# allocations familiales 50 + autres prestations 13 = 90 Md€, PLFSS 2026 /
+# DREES / OFCE 2024 / IPP 2023 — cf. docstring `_apply_prestations_indexation`) :
+# pas une nouvelle base inventée, réutilisation explicite de la base déjà
+# sourcée dans ce moteur pour le même périmètre de prestations.
+COUPE_PRESTATIONS_BASE_MD_EUR = 90.0
+# Gini/pouvoir d'achat : réutilise les mêmes coefficients que
+# `prestations_indexation` (OFCE 2024 : -10 pts d'indexation = +0,008 Gini,
+# -0,003 PA), rapportés ici à une coupe de MONTANT au lieu d'un écart
+# d'indexation — ANALOGIE, le mécanisme microéconomique (moins de
+# prestations perçues par les ménages des déciles bas) étant strictement
+# identique du point de vue du ménage bénéficiaire.
+COUPE_PRESTATIONS_GINI_PAR_10PCT = 0.008
+COUPE_PRESTATIONS_PA_PAR_10PCT = -0.003
+
+# --- Accises (droits d'accise indirects : TICPE + droits tabac + droits ---
+# --- alcools) — lot 2026-10, ajout "accise ok" (benchmark moi-président) ---
+# Levier absent du moteur jusqu'ici : ni `tva_rate` (TVA générale ad valorem)
+# ni `tva_energie` (TVA énergie uniquement) ne couvrent les droits
+# D'ACCISE SPÉCIFIQUES (montant fixe par unité physique — hL, 1000 cigarettes
+# — indexé, PAS un taux ad valorem) qui financent la fiscalité
+# "comportementale" française : TICPE (carburants), droits de consommation
+# sur le tabac, droits sur les alcools. Projet comparable identifié
+# (github.com/Vadech/moi-president) modélise ces 3 ensemble sous un seul
+# levier "Accises/product taxes" (7,7% du total, 15,3 Md€/point) — mais ne
+# publie pas sa propre assiette/source vérifiable ; nous reconstruisons donc
+# notre propre base, 100% sourcée administrations françaises, SANS reprendre
+# le chiffre de ce projet tiers (principe anti-invention de ce moteur :
+# on ne recopie pas un chiffre externe non vérifié).
+#
+# ASSIETTE (base annuelle, recettes brutes, dernière donnée publique
+# disponible pour chaque composante — PAS la même année pour les 3, faute de
+# publication consolidée unique ; traiter le total comme un ordre de
+# grandeur 2023-2024, pas un montant figé) :
+#   - TICPE (taxe intérieure de consommation sur les produits énergétiques,
+#     carburants routiers) : 30,5 Md€ (2022, dernière donnée chiffrée par le
+#     ministère de la Transition écologique reprise par la presse
+#     spécialisée ; ordre de grandeur stable 30-33 Md€ brut 2023-2024 selon
+#     le Trésor — TICPE+TICGN gaz naturel ~33 Md€ brut en 2019 avant
+#     redistribution ~60% État / reste AFITF+collectivités).
+#   - Droits de consommation sur le tabac (dont licences débitants) :
+#     13,95 Md€ (2024, prévision), Sénat, rapport d'information n°638
+#     (2023-2024), "La fiscalité comportementale en santé : stop ou
+#     encore ?" (https://www.senat.fr/rap/r23-638/r23-6389.html), données
+#     DGDDI — 13 614 M€ en 2023, 13 952 M€ prévus en 2024.
+#   - Droits sur les alcools (droits de consommation alcools + droit
+#     bières/boissons non alcoolisées + cotisation de solidarité alcools +
+#     droits vins/cidres/poirés/hydromels + droits produits intermédiaires) :
+#     4,565 Md€ (2024, provisoire), même source Sénat n°638
+#     (https://www.senat.fr/rap/r23-638/r23-63810.html), données DGDDI —
+#     décomposition : 2,312 Md€ (droits consommation alcools) + 1,313 Md€
+#     (bières/BNA) + 0,771 Md€ (cotisation solidarité) + 0,112 Md€
+#     (vins/cidres/poirés/hydromels) + 0,057 Md€ (produits intermédiaires).
+# Total retenu : 49,0 Md€/an (arrondi prudent de 30,5+13,95+4,565=48,97 Md€,
+# et volontairement EN DEÇÀ de l'estimation informelle "60-70 Md€" parfois
+# citée pour "la fiscalité sur les carburants et les cigarettes" — ex.
+# Institut Molinari 2019, qui agrège une assiette plus large (TVA sur
+# carburants/tabac incluse en plus des accises elles-mêmes, ce qui ferait
+# double emploi avec `tva_rate` dans CE moteur) : on reste ici strictement
+# sur le périmètre "droits d'accise" (TICPE+tabac+alcool), pas la fiscalité
+# totale sur ces produits.
+ACCISES_BASE_TICPE_MD_EUR = 30.5
+ACCISES_BASE_TABAC_MD_EUR = 13.95
+ACCISES_BASE_ALCOOL_MD_EUR = 4.565
+ACCISES_BASE_TOTAL_MD_EUR = (
+    ACCISES_BASE_TICPE_MD_EUR + ACCISES_BASE_TABAC_MD_EUR + ACCISES_BASE_ALCOOL_MD_EUR
+)  # 49,0 Md€
+
+# ÉLASTICITÉ-PRIX : élasticité -0,4 pour le tabac, "hypothèse conventionnelle
+# correspondant aux études disponibles" selon le même rapport Sénat n°638.
+# AUCUNE élasticité dédiée trouvée pour TICPE/alcool avec la même précision
+# dans une source unique directement comparable — ESTIMATION PAR ANALOGIE :
+# on applique la même élasticité -0,4 aux 3 composantes (mécanisme
+# économique identique : une hausse du prix TTC réduit le volume consommé,
+# réduisant mécaniquement le rendement attendu d'une hausse de taux). Même
+# démarche que `tva_rate`/`tva_energie` dans ce fichier, qui appliquent déjà
+# une élasticité-prix pour amortir l'effet mécanique d'un changement de taux.
+ACCISES_ELASTICITE_PRIX = -0.4
+
+# GINI / POUVOIR D'ACHAT : source trouvée et EXAMINÉE pour une vraie clé de
+# décile (voir `decile.py`) — Insee, Ruiz & Trannoy, "Le caractère régressif
+# des taxes indirectes", Économie et Statistique n°413 (2008)
+# (https://www.insee.fr/fr/statistiques/fichier/1376872/ES413B.pdf), tableau
+# 4 : taux d'effort (part du revenu disponible) de CES TROIS taxes
+# précisément — tabac 0,91% (D1) à 0,13% (D10) ; alcools 0,47% (D1) à 0,16%
+# (D10) ; produits pétroliers/TICPE 2,89% (D1) à 1,00% (D10) ; combinées :
+# 4,3% du revenu pour D1 contre 1,3% pour D10 (ratio ~3,3), confirmant une
+# régressivité plus marquée que la TVA générale (clé `tva_rate` de
+# `decile.py`, CPO/Boutchenik 2015). Cette étude date de 2008 (structure de
+# consommation et niveaux de taxation différents d'aujourd'hui) et ne publie
+# PAS le revenu disponible moyen par décile dans le même tableau : la
+# convertir en PARTS DE CHARGE par décile (sommant à 1, format attendu par
+# `decile.py`) nécessiterait de la croiser avec une distribution de revenu
+# par décile tirée d'une AUTRE source — une combinaison à deux sources non
+# publiée telle quelle, que ce moteur évite par principe (même discipline
+# que `quotient_familial`/`quotient_conjugal`/`pfu_bareme` ci-dessus). On
+# utilise donc cette étude UNIQUEMENT pour calibrer l'ORDRE DE GRANDEUR du
+# coefficient agrégé gini/pouvoir d'achat ci-dessous (ESTIMATION), PAS pour
+# construire une clé de décile — `accises` reste "non ventilée" dans
+# `decile.py`.
+# Part moyenne du revenu disponible consacrée aux 3 accises : AUCUN chiffre
+# national moyen publié dans la même étude (seulement D1/D10) — on retient
+# la moyenne arithmétique simple des deux bornes D1/D10 (4,3% et 1,3%) comme
+# ORDRE DE GRANDEUR du taux d'effort moyen, soit 2,8% ≈ 0,028. C'est une
+# APPROXIMATION ASSUMÉE (pas une moyenne pondérée par la population réelle
+# des 10 déciles, que l'étude ne permet pas de calculer sans sa table
+# complète D2-D9), documentée comme telle.
+ACCISES_PART_REVENU_MOYENNE = 0.028
+# Gini : ESTIMATION PAR ANALOGIE avec le facteur 0,05 déjà utilisé par
+# `tva_energie` ci-dessus pour une taxe de consommation régressive, MAJORÉ à
+# 0,07 pour refléter la régressivité plus forte mesurée par Insee ES413 pour
+# les accises comportementales (ratio D1/D10 ~3,3) comparée à la TVA
+# générale (ratio de parts D1/D10 ~8 sur la clé `tva_rate` de `decile.py`,
+# mais sur une assiette ad valorem bien plus large touchant toute la
+# consommation, pas seulement 3 produits ciblés) — la majoration de 0,05 à
+# 0,07 est elle-même une ESTIMATION, pas un facteur publié.
+ACCISES_GINI_FACTEUR = 0.07
+
+# --- Crédit d'impôt recherche (CIR) — ajouté 2026-10, lot audit comparatif --
+# (Institut Montaigne "Atelier des finances publiques" 2015-2017 et autres
+# simulateurs citoyens de référence) : crédit d'impôt sur les dépenses de
+# R&D PRIVÉE des entreprises (30 % des dépenses jusqu'à 100 M€, 5 % au-delà).
+# DISTINCT de `recherche_publique` (handlers/investissements.py), dont le
+# propre docstring précise déjà explicitement "Actuel ~10 Md€ (hors CIR
+# 7 Md€)" — assiettes disjointes (budget public de recherche vs crédit
+# d'impôt aux entreprises privées), pas de double comptage.
+#
+# COÛT BUDGÉTAIRE : DGFiP, "Voies et moyens" tome II (dépenses fiscales),
+# cité par le Sénat, rapport PLF 2025 "Remboursements et dégrèvements"
+# (l24-144-327) : créance CIR 6,5 Md€ en 2024, 6,6 Md€ anticipés en 2025
+# (+100 M€, +1,5 %, avec l'extinction du CICE). DISTINCT de la créance
+# BRUTE totale "CIR" publiée par le MESR (7,8 Md€ en 2023, y compris les
+# volets Innovation-PME et Collection textile, hors périmètre strict de la
+# dépense fiscale "recherche" budgétée par la DGFiP) — on retient ici le
+# chiffre DGFiP/Sénat, directement comparable au traitement budgétaire des
+# autres mesures fiscales de ce moteur.
+CIR_MONTANT_BASE_MD = 6.6
+# EFFET DE LEVIER : France Stratégie / Commission nationale d'évaluation des
+# politiques d'innovation (CNEPI), évaluation du CIR, rapport SEURECO
+# (strategie-plan.gouv.fr, juin 2021) : 1€ de CIR génère entre 1,2 et 1,5€
+# de dépense de R&D privée supplémentaire chez les entreprises bénéficiaires
+# (effet de levier/"excédent de dépense de R&D"). Milieu de fourchette
+# retenu (1,35), faute de borne centrale unique publiée par l'étude.
+CIR_LEVIER_RD_PRIVEE = 1.35
+# COMPÉTITIVITÉ : même coefficient par Md€ de R&D que `recherche_publique`
+# (0,0015, calibré sur l'élasticité OCDE output/R&D publique de Guellec &
+# Van Pottelsberghe 2004 = 0,17), appliqué ici au delta de R&D PRIVÉE induit
+# par le CIR via son effet de levier — faute d'élasticité compétitivité
+# dédiée publiée spécifiquement pour le CIR (ESTIMATION PAR ANALOGIE).
+# LIMITE ASSUMÉE : l'OCDE (2017, "Impact of Public R&D Expenditure", citée
+# par la CNEPI 2021) documente que les incitations fiscales généralistes
+# comme le CIR produisent un effet de levier plus modeste que la R&D
+# publique directe (crowding-in OCDE 1,70$ par $ pour la R&D publique vs
+# 1,2-1,5€ pour le CIR ci-dessus) — ce différentiel est DÉJÀ capturé en
+# amont par le ratio de levier (1,35 vs 1,70 utilisé par
+# `_apply_recherche_publique`) ; on NE le recorrige PAS une seconde fois
+# dans ce coefficient de compétitivité par Md€.
+CIR_COEFF_COMPETITIVITE_PAR_MD_RD = 0.0015
+# VENTILATION PAR TAILLE D'ENTREPRISE (ventilation_taille.py) : répartition
+# RÉELLE de la créance de CIR-recherche par catégorie d'entreprise, MESR-DGRI
+# (données 2023, relayées par financeinnovation.fr, "Le crédit impôt
+# recherche (CIR) en 2023") : PME 31 % de la créance (81 % des déclarants),
+# ETI 28 % (15 % des déclarants), grandes entreprises 41 % (3,5 % des
+# déclarants) — ces 3 parts somment à 100 %. Catégorie "microentreprises"
+# NON ISOLÉE dans cette statistique officielle (le seuil "PME" utilisé est
+# le seuil communautaire, <250 salariés et <=50 M€ de CA, qui englobe les
+# microentreprises) : MIC est donc conventionnellement mis à 0 et sa part
+# réelle (non nulle mais non chiffrée séparément par la source) reste
+# incluse dans PME — LIMITE ASSUMÉE, documentée dans ventilation_taille.py.
+CIR_TAILLE_SHARE_PME = 0.31
+CIR_TAILLE_SHARE_ETI = 0.28
+CIR_TAILLE_SHARE_GE = 0.41
+
+# --- Régimes spéciaux de retraite (SNCF, RATP, marins ENIM, mineurs
+# CANSSM, SEITA...) — ajouté 2026-10, lot audit comparatif. Subvention
+# d'équilibre BUDGÉTAIRE DIRECTE de l'État, mission "Régimes sociaux et de
+# retraite". DISTINCTE de `retraites` (handlers/depenses.py) : cette
+# dernière pilote les PARAMÈTRES DU RÉGIME GÉNÉRAL (âge légal de départ,
+# durée de cotisation, indexation des pensions) ; `regimes_speciaux_retraite`
+# porte sur une ligne de subvention à des régimes FERMÉS ou démographiquement
+# déséquilibrés (plus assez de cotisants actifs pour financer les pensions
+# en cours), sans lien avec les paramètres d'âge/durée du régime général.
+# MONTANT : Sénat, rapport PLF 2026 "Régimes sociaux et de retraite"
+# (l25-139-324) : subvention totale 6,0 Md€ en 2026, quasi stable vs 2025
+# (-0,13 %), dont environ 69 % (~4,1 Md€) pour les seuls régimes FERMÉS
+# SNCF et RATP. Source corroborante : Cour des comptes, note d'exécution
+# budgétaire 2023, mission "Régimes sociaux et de retraite" (avril 2024).
+REGIMES_SPECIAUX_SUBVENTION_BASE_MD = 6.0

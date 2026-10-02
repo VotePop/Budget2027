@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from budget_simulator import BudgetSimulatorV45, load_default_values
 from budget_simulator.decile import decile_breakdown
+from budget_simulator.ventilation_taille import ventilation_taille
 
 load_dotenv()
 
@@ -27,6 +28,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ============================================================================
+# AJOUT NON-ORIGINAL : Starlette/FastAPI n'ajoute pas "charset=utf-8" au
+# Content-Type des réponses JSON par défaut. La plupart des clients (fetch,
+# curl, notre propre frontend) assument UTF-8 sans broncher, mais un
+# navigateur consultant l'URL brute peut deviner une autre page de code et
+# afficher des caractères accentués corrompus (ex. "Ã©" au lieu de "é").
+# Correction : déclarer le charset explicitement sur toutes les réponses.
+# ============================================================================
 class UTF8JSONResponse(JSONResponse):
     media_type = "application/json; charset=utf-8"
 
@@ -207,11 +216,24 @@ async def simulate_decile(request: SimulationRequest):
         results, details, report = sim.simulate()
         measure_impacts = report.get('measure_impacts_by_year', [])
         decile = decile_breakdown(measure_impacts)
+        taille = ventilation_taille(measure_impacts)
 
         return {
             "success": True,
             "results": results.to_dict(orient='records'),
             "decile": decile,
+            # AJOUT (2026-09-30) : ventilation par taille d'entreprise (MIC/PME/ETI/GE)
+            # pour le bloc "Compétitivité" de la maquette, même principe que `decile`
+            # ci-dessus (voir budget_simulator/ventilation_taille.py et CHANGES.md).
+            "ventilation_taille": taille,
+            # AJOUT (2026-09) : la V1 de l'interface n'affichait aucun détail par mesure
+            # (uniquement la ventilation décile, filtrée aux mesures sourcées côté décile).
+            # La refonte de l'UI ajoute un tableau "impact par mesure" façon francebudget.fr,
+            # qui a besoin du détail COMPLET (recettes/dépenses par mesure et par année),
+            # y compris les mesures non ventilables par décile. Comme /simulate_decile est
+            # notre propre endpoint ajouté (absent du dépôt d'origine, cf. CHANGES.md), cette
+            # extension ne touche aucun fichier du moteur original.
+            "measure_impacts": measure_impacts,
         }
     except (ValueError, KeyError, AttributeError, TypeError, ZeroDivisionError) as e:
         logger.error("Erreur simulate_decile (%s) : %s", type(e).__name__, e, exc_info=True)
@@ -261,7 +283,10 @@ async def get_scenarios():
 @app.get("/")
 @app.head("/")
 async def root():
-    """Route racine — redirige vers l'interface web (/ui/)."""
+    """Route racine — AJOUT NON-ORIGINAL : redirige vers l'interface web (/ui/)
+    plutôt que d'afficher le JSON d'info technique, pour qu'un visiteur qui
+    clique le lien du site tombe directement sur les curseurs, pas sur une
+    réponse API brute. RedirectResponse répond aussi correctement à HEAD."""
     return RedirectResponse(url="/ui/")
 
 
@@ -283,6 +308,7 @@ async def api_info():
         },
         "debug_mode": DEBUG_MODE
     }
+
 
 @app.get("/health")
 async def health():

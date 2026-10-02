@@ -124,6 +124,15 @@
           "step": 0.5,
           "label": "Durée cotisation (années)",
           "type": "number"
+        },
+        "age_taux_plein": {
+          "valeur_defaut": 67.0,
+          "min": 62.0,
+          "max": 70.0,
+          "step": 0.25,
+          "label": "Âge du taux plein automatique",
+          "type": "number",
+          "tooltip": "Âge d'annulation automatique de la décote (67 ans actuellement), distinct de l'âge légal de départ. 8% des retraités liquident au taux plein par l'âge (DREES, Les retraités et les retraites, éd. 2025, génération 1953). Coefficient budgétaire = 8% de celui de l'âge légal, mécanisme de calcul non sourcé spécifiquement — ajouté 2026-10, non audité."
         }
       }
     },
@@ -637,6 +646,25 @@
       }
     },
     {
+      "id": "exoneration_heures_sup",
+      "categorie": "social",
+      "nom": "Exonération patronale heures > 35h",
+      "description": "Exonération de cotisations patronales sur les heures travaillées au-delà de 35h/semaine",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.1,
+          "label": "Taux d'exonération patronale (0-100%)",
+          "type": "number",
+          "tooltip": "0% = statu quo. Base de cotisations concernée ≈4,17 Md€/an : 650M heures sup/an secteur privé (DARES Acemo 2016, cité par OFCE) × salaire horaire brut moyen 23,75€ (INSEE, Insee Première n°2079, 10/2025) × 27% de cotisations patronales. Pas d'effet emploi modélisé (littérature TEPA ambiguë). Ajouté 2026-10 à la demande utilisateur, non audité."
+        }
+      }
+    },
+    {
       "id": "fiscalite_patrimoine",
       "categorie": "fiscalite",
       "nom": "Fiscalité du patrimoine",
@@ -766,6 +794,15 @@
           "label": "SMIC brut mensuel (€)",
           "type": "number",
           "tooltip": "Actuel ~1800€ brut = 1398€ net. Hausse +200€: +0.5% PA, -0.3% compétitivité, Gini -0.02. LFI: 1600€ net = 2050€ brut. Sources: OFCE 2024, DARES 2024."
+        },
+        "indexation": {
+          "valeur_defaut": 1.0,
+          "min": 0.0,
+          "max": 1.2,
+          "step": 0.05,
+          "label": "Indexation sur l'inflation",
+          "type": "number",
+          "tooltip": "1.0 = SMIC suit sa trajectoire légale actuelle. <1 = sous-indexation (érosion progressive du pouvoir d'achat du SMIC), >1 = coup de pouce récurrent au-delà de l'inflation. Élasticités reprises par analogie du curseur montant brut : le rapport officiel France Stratégie 'Groupe d'experts SMIC' 2025 confirme qu'aucune élasticité dédiée désindexation/emploi n'est publiée à ce jour. Ajouté 2026-10, non audité."
         }
       }
     },
@@ -827,6 +864,211 @@
       }
     },
     {
+      "id": "ttf",
+      "categorie": "fiscalite",
+      "nom": "Taxe sur les transactions financières",
+      "description": "Taxe sur les achats d'actions de sociétés françaises cotées (seuil de capitalisation ~1 Md€)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0.004,
+          "min": 0.001,
+          "max": 0.01,
+          "step": 0.0005,
+          "label": "Taux TTF",
+          "type": "number",
+          "tooltip": "Actuel 0,4% (relevé de 0,3% à 0,4% en avril 2025) → 2,5 Md€/an. Le relèvement de 0,1pt a généré ~0,5 Md€/an de plus → modèle linéaire. Source : moneyvox.fr (2025)."
+        }
+      }
+    },
+    {
+      "id": "taxe_gafa",
+      "categorie": "fiscalite",
+      "nom": "Taxe sur les services numériques (« taxe GAFA »)",
+      "description": "Taxe sur le chiffre d'affaires numérique des grandes entreprises tech (seuil CA mondial 750 M€)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0.03,
+          "min": 0.01,
+          "max": 0.08,
+          "step": 0.005,
+          "label": "Taux taxe GAFA",
+          "type": "number",
+          "tooltip": "Actuel 3% → 0,7 Md€/an (2024). Un amendement PLF 2026 propose de doubler à 6% (et relever le seuil à 2 Md€, non modélisé ici). Source : legifiscal.fr (28/10/2025)."
+        }
+      }
+    },
+    {
+      "id": "cdhr",
+      "categorie": "fiscalite",
+      "nom": "Contribution Différentielle sur les Hauts Revenus (CDHR)",
+      "description": "Impôt minimum sur les très hauts revenus (PLF 2025)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 1.0,
+          "min": 0,
+          "max": 1.5,
+          "step": 0.1,
+          "label": "Intensité (1.0 = régime actuel)",
+          "type": "number",
+          "tooltip": "1.0 = rendement RÉEL constaté 2026 (0,65 Md€, très inférieur à la prévision initiale de 2,0 Md€ — écart attribué à l'optimisation comportementale des dirigeants-actionnaires). 0 = suppression. Source : Deloitte Avocats."
+        }
+      }
+    },
+    {
+      "id": "taxe_holdings_patrimoniales",
+      "categorie": "fiscalite",
+      "nom": "Taxe sur les holdings patrimoniales",
+      "description": "Taxe sur le patrimoine financier des holdings familiales (PLF 2026, article 3)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0.02,
+          "min": 0,
+          "max": 0.04,
+          "step": 0.005,
+          "label": "Taux",
+          "type": "number",
+          "tooltip": "2% sur la valeur nette des actifs financiers non professionnels de holdings familiales ≥5 M€ d'actifs, revenus passifs >50% du total. ≈1,0 Md€/an dès 2026 (régime PLF 2026 adopté). Source : legifiscal.fr (10/2025)."
+        }
+      }
+    },
+    {
+      "id": "quotient_familial",
+      "bloc": "grille_tri_2026_10",
+      "categorie": "fiscalite",
+      "nom": "Quotient familial",
+      "description": "Abaissement du plafond de l'avantage du quotient familial (par demi-part additionnelle)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "plafond": {
+          "valeur_defaut": 1791,
+          "min": 500,
+          "max": 2336,
+          "step": 50,
+          "label": "Plafond par demi-part (€)",
+          "type": "number",
+          "tooltip": "1791€ = régime actuel (impôt 2025, Légifiscal/Sénat). Historique : 2336€ (2012) -> 2000€ (2013) -> 1500€ (2014, indexé depuis). Rendement calé sur la seule baisse réelle chiffrée : 2000€->1500€ (PLF 2014) = +1,03 Md€. Coût total du dispositif (hors conjugal) : 19 Md€/an (Insee Analyses n°53, 2020). Pas de ventilation par décile sourcée séparément pour ce levier (non ventilé)."
+        }
+      }
+    },
+    {
+      "id": "quotient_conjugal",
+      "bloc": "grille_tri_2026_10",
+      "categorie": "fiscalite",
+      "nom": "Quotient conjugal",
+      "description": "Individualisation de l'impôt sur le revenu des couples mariés/pacsés (fin de l'imposition commune)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.05,
+          "label": "Intensité (0-100%)",
+          "type": "number",
+          "tooltip": "0% = statu quo (imposition commune, 2 parts). 100% = individualisation complète avec option de rattachement des enfants, +7,2 Md€/an (Insee, Économie et Statistique n°526-527, 2021, Allègre et al.). Coût total du dispositif conjugal : 10,8 Md€/an. Mesure distincte du quotient familial (mécanisme différent, sourcée séparément). Pas de ventilation par décile sourcée (non ventilé)."
+        }
+      }
+    },
+    {
+      "id": "pfu_bareme",
+      "bloc": "grille_tri_2026_10",
+      "categorie": "fiscalite",
+      "nom": "Alignement PFU / barème progressif",
+      "description": "Retour au barème progressif de l'IR pour les revenus du capital, à la place du prélèvement forfaitaire unique (PFU, 30%)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.05,
+          "label": "Intensité (0-100%)",
+          "type": "number",
+          "tooltip": "0% = PFU maintenu (statu quo, 30%). 100% = retour intégral au barème progressif. Rendement brut 1,55 Md€ (milieu fourchette 1,4-1,7 Md€, comité d'évaluation France Stratégie, Sénat rapport n°19-042-1), net d'un facteur comportemental 0,85 (rebond de distribution de dividendes mesuré par l'IPP lors du passage au PFU, symétrie assumée). Pas de ventilation par décile sourcée (non ventilé)."
+        }
+      }
+    },
+    {
+      "id": "taxe_zucman",
+      "bloc": "grille_tri_2026_10",
+      "categorie": "fiscalite",
+      "nom": "Taxe \"Zucman\"",
+      "description": "Plancher d'imposition de 2% sur le patrimoine net des foyers détenant plus de 100 M€ (~1800 foyers)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.05,
+          "label": "Intensité (0-100%)",
+          "type": "number",
+          "tooltip": "0% = non appliquée. 100% = taux plein 2% (proposition Gabriel Zucman, rapport G20 2024). DEUX estimations de rendement, délibérément exposées : proposant (Zucman) 20 Md€/an ±5 Md€ ; contre-estimation iFRAP 2-3 Md€/an (double imposition non défalquée : l'IS déjà payé par les sociétés détenues via les holdings). Curseur `part_critique` pour pondérer entre les deux. Risque constitutionnel documenté (Conseil constitutionnel, censure 2012 d'un taux marginal 1,8% jugé confiscatoire). Non ventilée par décile ni taille d'entreprise (prudence assumée, cf. decile.py)."
+        },
+        "part_critique": {
+          "valeur_defaut": 0.5,
+          "min": 0,
+          "max": 1,
+          "step": 0.1,
+          "label": "Poids de la contre-estimation critique",
+          "type": "number",
+          "tooltip": "0 = rendement plein du proposant (20 Md€ au taux plein). 1 = rendement net de la critique iFRAP (2,5 Md€ au taux plein, double-comptage IS défalqué). Curseur assumé par ce moteur (pas une pondération publiée) pour situer son scénario entre les deux bornes sourcées."
+        }
+      }
+    },
+    {
+      "id": "coupe_prestations",
+      "bloc": "grille_tri_2026_10",
+      "categorie": "social",
+      "nom": "Coupe des prestations sociales",
+      "description": "Coupe directe et immédiate d'un pourcentage du montant versé (RSA/APL/allocations familiales/prime d'activité), distincte de l'indexation",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "taux_coupe": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 0.2,
+          "step": 0.01,
+          "label": "Taux de coupe (%)",
+          "type": "number",
+          "tooltip": "0% = statu quo. Coupe immédiate d'un pourcentage du montant versé, sur la même base que l'indexation des prestations (90 Md€ : RSA 12 + APL 15 + allocations familiales 50 + autres 13, PLFSS 2026/DREES/OFCE/IPP). Distincte de 'Indexation prestations sociales' (qui pilote le taux de compensation de l'inflation, pas une coupe de niveau) — les deux sont cumulables. Ventilée par décile avec la même clé sourcée (DSS/DREES REPSS Famille éd. 2025, très concentrée D1-D2)."
+        }
+      }
+    },
+    {
+      "id": "accises",
+      "bloc": "grille_tri_2026_10",
+      "categorie": "fiscalite",
+      "nom": "Accises (TICPE + tabac + alcool)",
+      "description": "Variation du niveau global des droits d'accise indirects : TICPE (carburants), droits de consommation sur le tabac, droits sur les alcools",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "variation_pct": {
+          "valeur_defaut": 0,
+          "min": -0.3,
+          "max": 0.5,
+          "step": 0.01,
+          "label": "Variation du niveau des accises (%)",
+          "type": "number",
+          "tooltip": "0% = statu quo. Variation relative appliquée identiquement aux 3 composantes (pas un taux de TVA : droits spécifiques distincts de 'Taux de TVA'/'TVA Énergie'). Assiette 49,0 Md€/an : TICPE 30,5 Md€ (2022, ministère Transition écologique), droits tabac 13,95 Md€ (2024 prévision, Sénat rapport n°638, DGDDI), droits alcools 4,565 Md€ (2024 provisoire, même source). Élasticité-prix -0,4 reprise du tabac (Sénat n°638) et appliquée aux 3 composantes par analogie. Régressif : Insee ES413 (Ruiz & Trannoy 2008) mesure un taux d'effort de 4,3% du revenu pour les 10% les plus modestes contre 1,3% pour les 10% les plus aisés sur ces 3 taxes précisément — non ventilé par décile faute de revenu moyen par décile publié dans la même étude."
+        }
+      }
+    },
+    {
       "id": "rabot_uniforme",
       "bloc": "institut_montaigne",
       "categorie": "depenses",
@@ -870,6 +1112,46 @@
           "label": "Exclure contribution UE",
           "type": "toggle",
           "tooltip": "1 = Sanctuariser la contribution européenne (~44 Md€). Obligation juridique."
+        }
+      }
+    },
+    {
+      "id": "credit_impot_recherche",
+      "bloc": "audit_comparatif_2026_10",
+      "categorie": "competitivite",
+      "nom": "Crédit d'impôt recherche (CIR)",
+      "description": "Crédit d'impôt sur les dépenses de R&D privée des entreprises",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 6.6,
+          "min": 0,
+          "max": 12,
+          "step": 0.1,
+          "label": "Coût du CIR (Md€)",
+          "type": "number",
+          "tooltip": "Crédit d'impôt recherche : 30% des dépenses de R&D privée jusqu'à 100 M€, 5% au-delà. Coût budgétaire actuel 6,6 Md€ (DGFiP \"Voies et moyens\" tome II, créance 2025 anticipée, cité par Sénat PLF 2025 \"Remboursements et dégrèvements\"). DISTINCT de `recherche_publique` (budget de recherche PUBLIQUE, ~10 Md€, qui exclut déjà explicitement le CIR). Effet de levier (France Stratégie/CNEPI 2021) : 1€ de CIR génère 1,2 à 1,5€ de R&D privée supplémentaire. Non ventilé par décile de niveau de vie (bénéficiaire = entreprise, pas foyer fiscal) ; ventilé par taille d'entreprise (PME 31%, ETI 28%, GE 41% de la créance, MESR-DGRI 2023)."
+        }
+      }
+    },
+    {
+      "id": "regimes_speciaux_retraite",
+      "bloc": "audit_comparatif_2026_10",
+      "categorie": "social",
+      "nom": "Régimes spéciaux de retraite",
+      "description": "Subvention d'équilibre de l'État (SNCF, RATP, marins ENIM, mineurs CANSSM...)",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 6.0,
+          "min": 0,
+          "max": 8,
+          "step": 0.1,
+          "label": "Subvention d'équilibre (Md€)",
+          "type": "number",
+          "tooltip": "Subvention budgétaire directe de l'État aux régimes spéciaux de retraite (SNCF, RATP, marins ENIM, mineurs CANSSM, SEITA...), mission \"Régimes sociaux et de retraite\". Total 6,0 Md€ en 2026 (Sénat, rapport PLF 2026), dont ~69% (4,1 Md€) pour les seuls régimes fermés SNCF/RATP. DISTINCTE de `retraites` (paramètres du régime général : âge légal, durée de cotisation, indexation). Non ventilée par décile : aucune publication ne ventile les bénéficiaires de ces régimes spécifiquement, et le signe même de l'effet distributif n'est pas établi (certaines pensions, ex. SNCF, sont supérieures à la moyenne du régime général)."
         }
       }
     }

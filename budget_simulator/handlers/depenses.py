@@ -49,6 +49,18 @@ Mesures couvertes (6 handlers) :
   programme qui cumule les deux leviers, jamais lui en offrir. Re-baser
   le levier d'indexation (dont l'assiette n'est PAS auditée par le lot
   ASU) est un chantier distinct.
+- ``coupe_prestations`` (ajouté 2026-10, lot "grille de tri 12 pistes") :
+  coupe DIRECTE et IMMÉDIATE d'un pourcentage du montant versé des mêmes
+  prestations (base 90 Md€, réutilisée telle quelle de
+  `prestations_indexation`) — PAS l'indexation : `taux_coupe` retire une
+  fraction du montant chaque année dès l'entrée en vigueur, sans dépendre de
+  l'inflation ni s'éroder de façon composée. Distincte et cumulable (pas
+  d'anti-double-comptage automatique) avec `prestations_indexation` : les
+  deux pilotent la MÊME base de 90 Md€ par des mécanismes différents
+  (niveau immédiat vs écart d'indexation cumulatif) — un scénario qui active
+  les deux cumule leurs effets, ce qui est voulu (ex. "coupe immédiate de 5%
+  ET gel de l'indexation ensuite"), mais la somme des deux peut dépasser la
+  base réelle si poussée à l'extrême (LIMITE ASSUMÉE, signalée au tooltip).
 
 Convention d'application :
 - Effets ``gini`` / ``competitivite`` (et parfois ``pouvoir_achat`` /
@@ -127,7 +139,11 @@ from ..constants import (
     CHOMAGE_TAUX_REF,
     CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE,
     CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE,
+    COUPE_PRESTATIONS_BASE_MD_EUR,
+    COUPE_PRESTATIONS_GINI_PAR_10PCT,
+    COUPE_PRESTATIONS_PA_PAR_10PCT,
     COUT_CHOMAGE_MARGINAL_MOIS_MD,
+    REGIMES_SPECIAUX_SUBVENTION_BASE_MD,
     GINI_ALLOC_PAR_MD_EUR,
     GINI_DUREE_SURPOIDS,
     FUITE_SOCIALE_RESIDUELLE,
@@ -139,13 +155,16 @@ from ..constants import (
     PREVENTION_OFFSET_RAMP_PER_YEAR,
     RDB_MENAGES_MD_EUR,
     RETRAITES_COEFF_AGE_MD_EUR,
+    RETRAITES_COEFF_AGE_TAUX_PLEIN_MD_EUR,
     RETRAITES_COEFF_DUREE_MD_EUR,
     RETRAITES_EROSION_INDEXATION_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
     RETRAITES_GINI_PAR_ANNEE_ECART,
+    RETRAITES_GINI_PAR_ANNEE_ECART_TAUX_PLEIN,
     RETRAITES_GINI_PAR_POINT_DESINDEXATION,
     RETRAITES_GINI_RESIDU_FLUX,
     RETRAITES_PA_GEL_TOTAL,
+    RETRAITES_REF_AGE_TAUX_PLEIN_ANS,
     RETRAITES_REF_DUREE_ANS,
     asu_cout_annuel_md_eur,
     asu_cout_recours_md_eur,
@@ -200,6 +219,13 @@ class DepensesMixin(_MixinBase):
         # l'effet du calendrier légal 2028-2032.
         indexation = params.get('indexation', 1.0)
         duration = params.get('duree_cotisation', RETRAITES_REF_DUREE_ANS)
+        # NOUVEAU (fork VotePop 2026-10, cf constants.py § Nouveaux leviers
+        # sociaux) : âge d'annulation automatique de la décote ("taux plein
+        # par l'âge"). Référence FIXE (67 ans, pas de calendrier contrairement
+        # à `age_depart`) : écart dès la première année simulée -> horloge du
+        # RUN (`phasing`, calculé plus bas), comme `duree_cotisation`.
+        age_taux_plein = params.get('age_taux_plein', RETRAITES_REF_AGE_TAUX_PLEIN_ANS)
+        ecart_taux_plein = age_taux_plein - RETRAITES_REF_AGE_TAUX_PLEIN_ANS
         # Montee en charge cohortes 5 ans (COR 2024). Formules SYMETRIQUES
         # autour des references : hausse = economie, baisse = surcout miroir
         # (cf METHODOLOGIE.md § Retraites).
@@ -244,6 +270,11 @@ class DepensesMixin(_MixinBase):
         # ces mêmes prestations. Sources : constants.py § CANAL EMPLOI SENIORS.
         delta_spending += economie_brute_age * phasing_age * FUITE_SOCIALE_RESIDUELLE
         delta_spending -= RETRAITES_COEFF_DUREE_MD_EUR * (duration - RETRAITES_REF_DUREE_ANS) * phasing
+        # Âge du taux plein automatique (NOUVEAU) : même logique symétrique
+        # que l'âge légal, coefficient réduit (cf constants.py — ESTIMATION
+        # PAR ANALOGIE, population restreinte aux carrières incomplètes),
+        # horloge du RUN (référence fixe).
+        delta_spending -= RETRAITES_COEFF_AGE_TAUX_PLEIN_MD_EUR * ecart_taux_plein * phasing
         # Indexation : erosion CUMULATIVE — RETRAITES_EROSION_INDEXATION_MD_EUR
         # par annee ecoulee et par point d'ecart a la pleine indexation,
         # plateau RETRAITES_EROSION_PLATEAU_ANS (renouvellement des cohortes).
@@ -298,6 +329,15 @@ class DepensesMixin(_MixinBase):
             gini += gini_age
         else:
             gini += gini_age * RETRAITES_GINI_RESIDU_FLUX
+
+        # Âge du taux plein automatique (NOUVEAU) : référence fixe -> horloge
+        # du RUN (comme l'indexation), pas l'horloge du calendrier légal.
+        gini_taux_plein = RETRAITES_GINI_PAR_ANNEE_ECART_TAUX_PLEIN * ecart_taux_plein
+        if self._is_first_year_change('retraites_gini_taux_plein',
+                                      {'age_taux_plein': age_taux_plein}):
+            gini += gini_taux_plein
+        else:
+            gini += gini_taux_plein * RETRAITES_GINI_RESIDU_FLUX
 
         # Pouvoir d'achat : Impact agrégé via retraités (~26% RDB).
         # Formule : -RETRAITES_PA_GEL_TOTAL × (1 - indexation), appliquée chaque
@@ -942,24 +982,37 @@ class DepensesMixin(_MixinBase):
         Population: 13.4M foyers retraités, 50% concernés
 
         Sources: PLF 2026, DGFiP, France Stratégie 2025
+
+        AJOUT 2026-10 (fork VotePop, absent du dépôt original) : paramètre ``montant`` (€,
+        forfait par personne, 0 = système actuel inchangé). Le calibrage d'origine (+4 Md€/an
+        en régime permanent) ne porte QUE sur le forfait PLF 2026 de 2000€ — on l'étend en loi
+        LINÉAIRE proportionnelle au forfait choisi (``montant/2000``), faute d'étude chiffrant
+        un forfait différent de 2000€. Limite assumée et documentée ici : au-delà de 2000€, ceci
+        est une extrapolation, pas une projection officielle. ``montant<=0`` équivaut à l'ancien
+        ``reforme_active=0`` (système actuel, abattement 10% inchangé) ; conservé pour
+        compatibilité avec les appels existants ne passant que ``reforme_active``.
         """
-        reforme = params.get('reforme_active', 0)  # 0 = système actuel, 1 = réforme 2000€
+        reforme = params.get('reforme_active', 0)  # 0 = système actuel, 1 = réforme (legacy)
+        montant = params.get('montant', 2000.0 if reforme == 1 else 0.0)  # € par personne
         phasing = 0.0
 
         # === BUDGET IMPACT ===
-        if reforme == 1:
+        if montant > 0:
             # Phasing progressif sur 2 ans (montée en charge administrative)
             year_idx = year - 2025
             if year_idx <= 0:
                 phasing = 0.0
             elif year_idx == 1:  # 2026
-                phasing = 0.3  # +1.2 Md€
+                phasing = 0.3  # +1.2 Md€ au forfait de référence (2000€)
             else:  # 2027+
-                phasing = 1.0  # +4 Md€
+                phasing = 1.0  # +4 Md€ au forfait de référence (2000€)
 
-            delta_revenue = 4.0 * phasing  # Positif = gain fiscal (plus d'impôts collectés)
+            # Échelle linéaire sur le forfait (2000€ = calibrage source, voir docstring ci-dessus).
+            delta_revenue = 4.0 * phasing * (montant / 2000.0)
         else:
             delta_revenue = 0
+
+        reforme = 1 if montant > 0 else 0  # pour la suite du calcul (gini/PA), inchangé
 
         # === MACRO IMPACTS ===
 
@@ -967,10 +1020,10 @@ class DepensesMixin(_MixinBase):
         # Réforme = hausse impôts retraités aisés = LÉGÈREMENT PROGRESSIF
         # Mais 10% plus riches = 60% du gain = distribution inégale
         # Rule: Impact modéré car ciblé
-        params_tracking = {'reforme': reforme}
+        params_tracking = {'reforme': reforme, 'montant': montant}
         if self._is_first_year_change('abattement_retraites', params_tracking):
             if reforme == 1:
-                gini = -0.004  # Légèrement progressif (taxe les riches)
+                gini = -0.004 * (montant / 2000.0)  # Légèrement progressif (taxe les riches), échelle sur le forfait
             else:
                 gini = 0.0
         else:
@@ -981,7 +1034,7 @@ class DepensesMixin(_MixinBase):
         # Perte moyenne: ~570€/an pour les concernés
         # Impact global: -0.0015% PA (effet limité car ciblé)
         if reforme == 1:
-            pouvoir_achat = -0.0015 * phasing
+            pouvoir_achat = -0.0015 * phasing * (montant / 2000.0)
         else:
             pouvoir_achat = 0
 
@@ -1100,4 +1153,105 @@ class DepensesMixin(_MixinBase):
             f"Économies {-delta_spending:+.1f}Md€"
         )
 
+        return delta_spending, 0, impacts
+
+    def _apply_coupe_prestations(self, measure: Dict, params: Dict, year: int,
+                                  gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
+        """Coupe DIRECTE et IMMÉDIATE d'un pourcentage du montant versé des prestations
+        sociales (RSA/APL/allocations familiales/prime d'activité), DISTINCTE de
+        `prestations_indexation` qui ne pilote QUE le taux de compensation de l'inflation
+        (érosion composée). `taux_coupe`=0 (défaut) = statu quo. Base réutilisée telle
+        quelle de `prestations_indexation` (90 Md€ : RSA 12 + APL 15 + allocations
+        familiales 50 + autres prestations 13 — PLFSS 2026, DREES, OFCE 2024, IPP 2023) :
+        pas une nouvelle base inventée. Effet RÉCURRENT (la coupe s'applique chaque année,
+        contrairement à l'érosion composée de l'indexation). Gini/pouvoir d'achat :
+        ANALOGIE avec les coefficients déjà utilisés par `prestations_indexation` (OFCE
+        2024 : -10 pts d'indexation = +0,008 Gini, -0,003 PA), rapportés ici à une coupe de
+        MONTANT — le mécanisme microéconomique (moins de prestations perçues par les
+        ménages des déciles bas, population identique à `prestations_indexation`) est
+        strictement le même du point de vue du ménage bénéficiaire, donc la même clé de
+        décile sourcée (DSS/DREES REPSS Famille éd. 2025) s'applique — voir
+        `decile.DECILE_SHARES['prestations_indexation']`, réutilisée pour ce levier dans
+        `decile.py`. CONDITION anti-double-comptage ASU : même garde que
+        `prestations_indexation` (si l'ASU est active, son périmètre de 39 Md€ suit le
+        SMIC et non cette base — neutralisation totale par cohérence, choix CONSERVATEUR
+        identique)."""
+        taux_coupe = params.get('taux_coupe', 0.0)
+
+        if asu_is_active(self.mesures):
+            _log_debug(self.debug_logs, f"Y{year}: Coupe prestations - INACTIVE (ASU activée)")
+            return 0, 0, {}
+
+        if abs(taux_coupe) < 1e-9:
+            return 0, 0, {}
+
+        delta_spending = -taux_coupe * COUPE_PRESTATIONS_BASE_MD_EUR  # <0 = économie
+
+        # Gini/PA : RÉCURRENTS (la coupe est appliquée chaque année, contrairement au
+        # gating one-time des barèmes fiscaux) — même convention que `prestations_indexation`.
+        gini = COUPE_PRESTATIONS_GINI_PAR_10PCT * (taux_coupe / 0.10)
+        pouvoir_achat = COUPE_PRESTATIONS_PA_PAR_10PCT * (taux_coupe / 0.10)
+
+        impacts = {'depenses': delta_spending, 'gini': gini, 'pouvoir_achat': pouvoir_achat}
+        _log_debug(self.debug_logs,
+            f"Y{year}: Coupe prestations - Taux {taux_coupe*100:.1f}%, "
+            f"Économies {-delta_spending:+.1f}Md€"
+        )
+        return delta_spending, 0, impacts
+
+    def _apply_regimes_speciaux_retraite(self, measure: Dict, params: Dict, year: int,
+                                          gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
+        """Subvention d'équilibre de l'État aux régimes spéciaux de retraite
+        (SNCF, RATP, marins ENIM, mineurs CANSSM, SEITA...), mission budgétaire
+        "Régimes sociaux et de retraite". DISTINCTE de `_apply_retraites`
+        ci-dessus, qui pilote les PARAMÈTRES DU RÉGIME GÉNÉRAL (âge légal de
+        départ, durée de cotisation, indexation) : ici, c'est une ligne de
+        SUBVENTION BUDGÉTAIRE DIRECTE à des régimes FERMÉS ou démographiquement
+        déséquilibrés (plus assez de cotisants actifs pour financer les
+        pensions en cours), sans lien avec l'âge légal ou la durée de
+        cotisation du régime général.
+
+        MONTANT : total 6,0 Md€ en 2026 (Sénat, rapport PLF 2026 "Régimes
+        sociaux et de retraite", l25-139-324, quasi stable vs 2025, -0,13%),
+        dont environ 69% (~4,1 Md€) pour les seuls régimes FERMÉS SNCF et RATP
+        (source corroborante : Cour des comptes, note d'exécution budgétaire
+        2023, mission "Régimes sociaux et de retraite", avril 2024). `montant`
+        =6.0 (défaut) = régime actuel ; une baisse = économie budgétaire
+        directe pour l'État (le manque à gagner pour les régimes concernés
+        n'est PAS modélisé ailleurs dans ce moteur).
+
+        GINI : ZÉRO ASSUMÉ ET ARGUMENTÉ, même principe que
+        `_apply_recherche_publique` (handlers/investissements.py). Aucune
+        publication (DREES, Cour des comptes) ne ventile les bénéficiaires de
+        CES régimes spécifiquement par décile de niveau de vie du ménage — la
+        DREES publie l'incidence par décile des pensions de retraite EN
+        GÉNÉRAL (clé `retraites` de `decile.py`), pas un sous-ensemble
+        "régimes spéciaux" isolé. Le signe lui-même n'est d'ailleurs pas
+        évident a priori : la Cour des comptes documente des pensions
+        moyennes de certains régimes spéciaux (ex. SNCF) supérieures à la
+        moyenne du régime général, ce qui rend non fondée une hypothèse
+        "régressif comme les minima sociaux". Inventer un coefficient serait
+        donc doublement arbitraire (ampleur ET signe) ; la mesure reste "non
+        ventilée" dans `decile.py` et son Gini est laissé à 0, plutôt que
+        d'attribuer un impact non sourcé.
+
+        POUVOIR D'ACHAT : laissé à 0 par le même principe de prudence — la
+        population concernée (de l'ordre du million de pensionnés des régimes
+        spéciaux, Cour des comptes) est trop étroite pour les enquêtes de
+        revenu Insee/DREES usuelles, et aucune publication ne chiffre un
+        ratio Md€ de subvention <-> pouvoir d'achat agrégé national pour
+        cette population spécifique."""
+        montant = params.get('montant', REGIMES_SPECIAUX_SUBVENTION_BASE_MD)
+        montant_base = REGIMES_SPECIAUX_SUBVENTION_BASE_MD
+        delta_spending = montant - montant_base  # Baisse de subvention = économie (<0)
+
+        if abs(delta_spending) < 1e-9:
+            return 0, 0, {}
+
+        impacts = {'depenses': delta_spending, 'gini': 0.0, 'pouvoir_achat': 0.0}
+
+        _log_debug(self.debug_logs,
+            f"Y{year}: Régimes spéciaux retraite - subvention {montant:.1f} Md€ "
+            f"(Δ{delta_spending:+.1f} Md€)"
+        )
         return delta_spending, 0, impacts

@@ -4,8 +4,12 @@ import logging
 from .constants import (
     CHOMAGE_DUREE_REF_MOIS,
     CHOMAGE_MONTANT_REF_MD,
+    CIR_MONTANT_BASE_MD,
     POLICY_MEASURES_PATH,
     PREVENTION_BASE_MD_EUR,
+    QUOTIENT_FAMILIAL_PLAFOND_REF_EUR,
+    REGIMES_SPECIAUX_SUBVENTION_BASE_MD,
+    RETRAITES_REF_AGE_TAUX_PLEIN_ANS,
     RETRAITES_REF_DUREE_ANS,
 )
 
@@ -37,7 +41,8 @@ def load_default_values():
         # publie pas d'`age_depart`, et une UI qui affiche un curseur doit
         # traiter son absence comme « calendrier légal en vigueur ».
         'retraites': {'indexation': 1.0,
-                      'duree_cotisation': RETRAITES_REF_DUREE_ANS},
+                      'duree_cotisation': RETRAITES_REF_DUREE_ANS,
+                      'age_taux_plein': RETRAITES_REF_AGE_TAUX_PLEIN_ANS},
         'fonction_publique': {'effectifs': 0, 'point_indice': 0},
         'fonction_publique_reforme': {'fusion_agences': 0, 'digitalisation': 0},
         'impot_societes': {'taux': 0.25, 'niches': 0},
@@ -77,11 +82,23 @@ def load_default_values():
         # RECHERCHE PUBLIQUE
         'recherche_publique': {'budget': 10},  # 10 Md€ base actuelle
         # NOUVELLES MESURES PRÉSIDENTIELLE 2027
-        'smic': {'montant_brut': 1800},  # ~1800€ brut actuel = 1398€ net
+        'smic': {'montant_brut': 1800, 'indexation': 1.0},  # ~1800€ brut actuel = 1398€ net ; indexation 1.0 = trajectoire légale
         'isf_climatique': {'intensite': 0},  # 0% = IFI maintenu, 100% = ISF NFP
         'tva_energie': {'taux': 0.20},  # 20% = status quo
         'taxe_superprofits': {'intensite': 0},  # 0-100%
         'exonerations_salaires': {'intensite': 0},  # 0-100%
+        # NOUVEAUX LEVIERS SOCIAUX 2026-10 (fork VotePop, demande utilisateur)
+        'exoneration_heures_sup': {'taux': 0},  # 0 = statu quo (pas d'exonération patronale >35h)
+        # NOUVEAUX LEVIERS 2026-10 (lot "grille de tri 12 pistes", fork VotePop)
+        'quotient_familial': {'plafond': QUOTIENT_FAMILIAL_PLAFOND_REF_EUR},  # 1791€ = plafond actuel (2025)
+        'quotient_conjugal': {'intensite': 0},  # 0 = statu quo (imposition commune maintenue)
+        'pfu_bareme': {'intensite': 0},  # 0 = PFU maintenu (statu quo)
+        'taxe_zucman': {'intensite': 0, 'part_critique': 0.5},  # 0 = non appliquée
+        'coupe_prestations': {'taux_coupe': 0},  # 0 = statu quo (pas de coupe)
+        'accises': {'variation_pct': 0},  # 0 = statu quo (TICPE+tabac+alcool inchangés)
+        # LEVIERS AUDIT COMPARATIF 2026-10
+        'credit_impot_recherche': {'montant': CIR_MONTANT_BASE_MD},  # régime actuel (6,6 Md€)
+        'regimes_speciaux_retraite': {'montant': REGIMES_SPECIAUX_SUBVENTION_BASE_MD},  # régime actuel (6,0 Md€)
         # NOUVELLES MESURES 2026 (PLF/PLFSS)
         'abattement_retraites': {'reforme_active': 0},  # 0/1
         # Pas de asu_active/asu_plafonnement ici : l'anti-double-comptage ASU

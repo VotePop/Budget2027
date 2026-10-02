@@ -19,6 +19,38 @@ Mesures couvertes (8 handlers) :
   intensité ±0,3. Effet redistributif fort.
 - ``isf_climatique`` : ISF avec bonus actifs verts, slider intensité 0-100 %,
   remplace l'IFI (croissance +2 %/an). Phasing 2 ans (cadastre), plafond 18 Md€.
+- ``quotient_familial`` (ajouté 2026-10, lot "grille de tri 12 pistes") :
+  abaissement du plafond de l'avantage du quotient familial (plafond actuel
+  1791€/demi-part). Modèle linéaire calé sur le seul point de calibration
+  réel disponible : la baisse PLF 2014 (2000€->1500€ = +1,03 Md€).
+- ``quotient_conjugal`` (ajouté 2026-10) : individualisation de l'IR des
+  couples mariés/pacsés (fin de l'imposition commune), slider intensité
+  0-100 % interpolant vers le scénario "individualisation complète avec
+  option" de l'Insee (+7,2 Md€). Mesure STRUCTURELLE distincte du quotient
+  familial (mécanisme différent : parts du couple vs parts des enfants),
+  sourcée séparément (Insee Analyses n°53 décompose le coût total 29,7 Md€
+  en 10,8 Md€ conjugal / 19,0 Md€ familial).
+- ``pfu_bareme`` (ajouté 2026-10) : retour au barème progressif de l'IR pour
+  les revenus du capital, à la place du prélèvement forfaitaire unique (PFU,
+  30 %). Slider intensité 0-100 %, calé sur le coût permanent du PFU estimé
+  par le comité d'évaluation France Stratégie (1,4-1,7 Md€/an), net d'un
+  facteur comportemental (rebond de distribution de dividendes observé par
+  l'IPP lors du passage au PFU, supposé symétrique en cas de retour arrière).
+- ``accises`` (ajouté 2026-10, demande utilisateur "accise ok" suite à
+  comparaison avec le projet tiers github.com/Vadech/moi-president) : levier
+  sur le NIVEAU GLOBAL des droits d'accise indirects — TICPE (carburants) +
+  droits de consommation sur le tabac + droits sur les alcools —, distinct de
+  ``tva_rate``/``tva_energie`` (TVA ad valorem) : ce sont des droits
+  SPÉCIFIQUES (montant fixe par unité physique, pas un taux proportionnel).
+  Slider ``variation_pct`` (variation relative appliquée aux 3 composantes
+  simultanément). Assiette 49,0 Md€/an (TICPE 30,5 + tabac 13,95 +
+  alcool 4,565, sources Trésor/Sénat n°638/DGDDI, cf. constants.py), élasticité
+  -0,4 reprise PAR ANALOGIE du tabac (Sénat n°638) faute d'élasticité dédiée
+  publiée pour les 3 composantes combinées. Gini/PA calibrés PAR ANALOGIE sur
+  une vraie étude de régressivité décile trouvée pour ces 3 taxes précisément
+  (Insee ES413, Ruiz & Trannoy 2008) mais non convertible en clé de décile
+  faute de revenu moyen par décile publié dans la même étude — ``accises``
+  reste "non ventilée" dans ``decile.py`` (cf. docstring de ce module).
 
 Convention d'application :
 - Effets ``gini`` / ``pouvoir_achat`` / ``competitivite`` en mode NIVEAU
@@ -54,7 +86,13 @@ Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
 """
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import ETI_TRANCHE_SUPERIEURE, POLICY_START_YEAR
+from ..constants import (
+    ACCISES_BASE_TOTAL_MD_EUR, ACCISES_ELASTICITE_PRIX, ACCISES_GINI_FACTEUR,
+    ACCISES_PART_REVENU_MOYENNE, ETI_TRANCHE_SUPERIEURE, POLICY_START_YEAR,
+    PFU_BAREME_FACTEUR_COMPORTEMENTAL, PFU_BAREME_RENDEMENT_BRUT_MD,
+    QUOTIENT_CONJUGAL_RENDEMENT_INDIVIDUALISATION_MD,
+    QUOTIENT_FAMILIAL_PLAFOND_REF_EUR, QUOTIENT_FAMILIAL_RENDEMENT_PAR_EURO_MD,
+)
 from .._logging import _log_debug
 from ._phasing import _one_time_level, _year_phasing
 from ._types import ImpactsDict
@@ -82,7 +120,21 @@ class FiscaliteMenagesMixin(_MixinBase):
         adjusted_base = consumption_base * (1 + base_elasticity * (rate - 0.20))
         delta_revenue = (rate - 0.20) * adjusted_base * 0.9
         if rate > 0.22:
-            delta_revenue *= (1 - 0.2 * (rate - 0.22) / 0.03)
+            # BUG corrigé 2026-10 (fork VotePop) : ce facteur d'amortissement comportemental
+            # n'était borné nulle part. Il était sans risque tant que le curseur restait dans
+            # la plage d'origine du moteur (15-25%), mais une fois la plage élargie (demande
+            # explicite d'aller au-delà de 25%, voir CHANGES.md), le facteur devenait NUL vers
+            # 37% de taux puis NÉGATIF au-delà (ex. -8,7 à 50%) — ce qui inversait le signe de
+            # `delta_revenue` : le moteur affichait alors qu'une TVA à 50% rapportait MOINS que la
+            # TVA actuelle à 20%, et par ricochet (signe inversé côté ménages dans le mockup) que
+            # les ménages "gagnaient de l'argent" en augmentant la TVA — économiquement absurde,
+            # confirmé et reproduit lors d'un test utilisateur. Plancher à 0 : au-delà du point où
+            # l'effet comportemental (élasticité-prix, ETI) compenserait entièrement l'effet
+            # mécanique, le modèle affiche une saturation (recette additionnelle nulle) plutôt
+            # qu'une réversion de signe — pas une nouvelle hypothèse, un garde-fou sur une
+            # extrapolation qui n'était valide que sur un intervalle étroit à l'origine.
+            damping = 1 - 0.2 * (rate - 0.22) / 0.03
+            delta_revenue *= max(0.0, damping)
 
         # === RECETTES — 3 AUTRES TAUX DE TVA (2026-09) ===
         # Ajout (2026-09) : jusqu'ici seul le taux normal était pilotable. Le canal
@@ -394,13 +446,20 @@ class FiscaliteMenagesMixin(_MixinBase):
         Baisse cotisations salariales (22% actuellement)
 
         Paramètre:
-        - baisse_points (0-5): Baisse en points de cotisations
+        - baisse_points (-3 à 5): points de cotisations, positif = baisse, négatif = hausse
 
-        Impact: -1 point = +0.5% pouvoir d'achat, coût 6 Md€
+        Impact: -1 point = +0.5% pouvoir d'achat, coût 6 Md€ (linéaire, donc symétrique pour
+        une hausse : +1 point = -0.5% pouvoir d'achat, +6 Md€ recettes)
         Sources: URSSAF 2024, DARES pouvoir d'achat, OFCE multiplicateurs
+
+        AJOUT 2026-10 (fork VotePop) : borne basse étendue de 0 à -3 pour permettre une HAUSSE
+        des cotisations salariales (le moteur original ne permettait que la baisse) — demande
+        explicite ("on ne peut pas monter du coup ?"). Toutes les formules ci-dessous étaient
+        déjà linéaires en `baisse_points`, donc s'étendent correctement par symétrie à une
+        valeur négative ; aucune nouvelle élasticité inventée.
         """
-        baisse_points = params.get('baisse_points', 0.0)  # 0.0 à 5.0
-        baisse_points = max(0, min(5, baisse_points))  # Clamp 0-5
+        baisse_points = params.get('baisse_points', 0.0)  # -3.0 à 5.0
+        baisse_points = max(-3, min(5, baisse_points))  # Clamp -3..5
 
         if baisse_points == 0:
             return 0.0, 0.0, {}
@@ -458,17 +517,23 @@ class FiscaliteMenagesMixin(_MixinBase):
         Élargissement base IR (45% → 70% contribuables)
 
         Paramètres:
-        - taux_contribuables_cible (0.45-0.70): % foyers imposables cible
+        - taux_contribuables_cible (0.20-1.00): % foyers imposables cible
 
         Implique plusieurs leviers techniques (baisse seuil entrée, gel barème,
         réduction abattements, plafonnement QF, restriction niches fiscales...)
 
         Sources: DGFiP 2024 (19M/41M foyers imposés = 45%), France Stratégie, OFCE
+
+        AJOUT 2026-10 (fork VotePop) : bornes étendues de [0.45, 0.70] à [0.20, 1.00] — demande
+        explicite ("pourquoi ne pas permettre de descendre ou de monter plus haut ?"). La formule
+        `nouveaux_contrib = FOYERS_TOTAL * (taux_cible - TAUX_ACTUEL)` était déjà linéaire, donc
+        s'étend correctement dans les deux sens (réduction de la base en dessous de 45%, ou
+        universalisation à 100%) sans nouvelle hypothèse ajoutée.
         """
-        taux_cible = params.get('taux_contribuables_cible', 0.45)  # 0.45-0.70
+        taux_cible = params.get('taux_contribuables_cible', 0.45)  # 0.20-1.00
 
         # Clamp paramètre
-        taux_cible = max(0.45, min(0.70, taux_cible))
+        taux_cible = max(0.20, min(1.00, taux_cible))
 
         # Statu quo - Mise à jour DGFiP 2024
         TAUX_ACTUEL = 0.45  # 19M foyers / 41M total = 45% (DGFiP 2024)
@@ -711,5 +776,205 @@ class FiscaliteMenagesMixin(_MixinBase):
             f"Nettes {recettes_nettes:.1f} Md€, IFI {ifi_actuel:.1f} Md€, Delta {delta_revenue:+.1f} Md€"
         )
 
+        return 0, delta_revenue, impacts
+
+    def _apply_quotient_familial(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
+        """Abaissement du plafond de l'avantage du quotient familial (par demi-part
+        additionnelle). Plafond actuel (revenus 2024, impôt 2025) : 1791€ (Légifiscal/Sénat
+        PLF 2025). Modèle LINÉAIRE calé sur le seul point de calibration réel disponible :
+        la baisse PLF 2014 (2000€->1500€, -500€) avait été chiffrée par le gouvernement à
+        +1,03 Md€ (Légifiscal, "PLF 2014 : abaissement du plafond de l'avantage procuré par
+        le quotient familial"). `plafond`=1791 (défaut) = régime actuel, statu quo.
+        LIMITE ASSUMÉE : pas d'élasticité comportementale dédiée publiée (pas de
+        réoptimisation des revenus/structure familiale modélisée), et le coefficient est
+        extrapolé hors de la plage observée (-500€) si l'écart demandé est plus grand — à
+        traiter comme un ordre de grandeur, pas une prévision précise à grande échelle. Sans
+        clé de ventilation par décile sourcée séparément pour LE QUOTIENT FAMILIAL SEUL
+        (Insee Analyses n°53 ne publie qu'une concentration agrégée conjugal+familial par
+        vingtile, pas un tableau décile par décile par dispositif) : mesure "non ventilée"
+        dans decile.py, cf. docstring du module."""
+        plafond = params.get('plafond', QUOTIENT_FAMILIAL_PLAFOND_REF_EUR)
+        ecart_eur = QUOTIENT_FAMILIAL_PLAFOND_REF_EUR - plafond  # >0 si baisse du plafond
+
+        if abs(ecart_eur) < 1e-9:
+            return 0, 0, {}
+
+        delta_revenue = ecart_eur * QUOTIENT_FAMILIAL_RENDEMENT_PAR_EURO_MD
+
+        # Gini : ESTIMATION PAR ANALOGIE avec `impot_revenu` (même nature : barème IR
+        # progressif, pas d'élasticité dédiée publiée pour CE levier précis). Progressif
+        # (bénéficiaires concentrés dans les déciles supérieurs, Insee Analyses n°53).
+        if self._is_first_year_change('quotient_familial', {'plafond': plafond}):
+            gini = -0.004 * delta_revenue
+            pouvoir_achat = -0.001 * delta_revenue
+        else:
+            gini = 0.0
+            pouvoir_achat = 0.0
+
+        impacts = {'recettes': delta_revenue, 'gini': gini, 'pouvoir_achat': pouvoir_achat}
+        _log_debug(self.debug_logs,
+            f"Y{year}: Quotient familial - Plafond {plafond:.0f}€ (réf. {QUOTIENT_FAMILIAL_PLAFOND_REF_EUR:.0f}€) -> "
+            f"recettes {delta_revenue:+.2f} Md€"
+        )
+        return 0, delta_revenue, impacts
+
+    def _apply_quotient_conjugal(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
+        """Individualisation de l'impôt sur le revenu des couples mariés/pacsés (fin de
+        l'imposition commune, 2 parts). `intensite`=0 (défaut) = statu quo (imposition
+        commune maintenue), `intensite`=1.0 = individualisation complète avec option de
+        rattachement des enfants conservée, +7,2 Md€/an (Insee, Économie et Statistique
+        n°526-527, 2021, Allègre et al., simulation de 3 réformes du quotient conjugal —
+        scénario retenu : celui qui préserve le mieux la progressivité sans pénaliser la
+        prise en charge des enfants). Interpolation LINÉAIRE entre les deux bornes : les 2
+        autres scénarios chiffrés par la même étude (réduction à 1,5 part : 3,8-4,8 Md€ ;
+        plafonnement façon quotient familial : 2,9 Md€) ne sont pas modélisés ici, faute de
+        source pour une interpolation non-linéaire entre les 3. Mesure STRUCTURELLE
+        distincte de `quotient_familial` (mécanisme différent, sourcée séparément : Insee
+        Analyses n°53 décompose le coût total 29,7 Md€ en 10,8 Md€ conjugal / 19,0 Md€
+        familial — pas de double-comptage entre les deux leviers). Sans clé de ventilation
+        par décile sourcée séparément pour ce levier précis (même limite que
+        `quotient_familial` ci-dessus, Insee Analyses n°53 n'étant pas assez détaillée) :
+        mesure "non ventilée" dans decile.py."""
+        intensite = params.get('intensite', 0.0)
+
+        if abs(intensite) < 1e-9:
+            return 0, 0, {}
+
+        delta_revenue = intensite * QUOTIENT_CONJUGAL_RENDEMENT_INDIVIDUALISATION_MD
+
+        # Gini : ESTIMATION PAR ANALOGIE avec `impot_revenu`/`quotient_familial` (même
+        # nature : réforme du barème IR, progressive car les gains de l'imposition commune
+        # sont concentrés chez les couples aisés à un seul revenu, Insee 2021). Pouvoir
+        # d'achat : concentré sur les couples mariés aisés, effet agrégat faible.
+        if self._is_first_year_change('quotient_conjugal', {'intensite': intensite}):
+            gini = -0.004 * delta_revenue
+            pouvoir_achat = -0.0005 * delta_revenue
+        else:
+            gini = 0.0
+            pouvoir_achat = 0.0
+
+        impacts = {'recettes': delta_revenue, 'gini': gini, 'pouvoir_achat': pouvoir_achat}
+        _log_debug(self.debug_logs,
+            f"Y{year}: Quotient conjugal - Intensité {intensite*100:.0f}% -> recettes {delta_revenue:+.2f} Md€"
+        )
+        return 0, delta_revenue, impacts
+
+    def _apply_pfu_bareme(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
+        """Retour au barème progressif de l'IR pour les revenus du capital, à la place du
+        prélèvement forfaitaire unique (PFU, taux global 30% depuis 2018). `intensite`=0
+        (défaut) = PFU maintenu (statu quo), `intensite`=1.0 = retour intégral au barème.
+        Rendement BRUT calé sur le coût permanent du PFU estimé par le comité d'évaluation
+        France Stratégie (1,4-1,7 Md€/an, milieu de fourchette 1,55 Md€ retenu ; Sénat,
+        rapport n°19-042-1, "Transformation de l'ISF en IFI et création du PFU : un premier
+        bilan"). Facteur comportemental 0,85 : ESTIMATION (pas une élasticité publiée pour
+        le sens inverse de la réforme) assumant qu'un retour au barème réduirait
+        symétriquement le rebond de distribution de dividendes mesuré par l'IPP lors du
+        passage au PFU (note n°46, 2019 : dividendes 29,8->37,1 Md€ entre 2017 et 2018,
+        ~0,5 Md€ de recettes IR+PS additionnelles sur un rendement PFU réel 2018 de 3,5 Md€,
+        soit 1 - 0,5/3,5 ≈ 0,85). Sans clé de ventilation par décile sourcée pour ce levier
+        (IPP note n°46 ne publie pas de répartition par décile des bénéficiaires du PFU) :
+        mesure "non ventilée" dans decile.py."""
+        intensite = params.get('intensite', 0.0)
+
+        if abs(intensite) < 1e-9:
+            return 0, 0, {}
+
+        delta_revenue = intensite * PFU_BAREME_RENDEMENT_BRUT_MD * PFU_BAREME_FACTEUR_COMPORTEMENTAL
+
+        # Gini : ESTIMATION PAR ANALOGIE avec `fiscalite_patrimoine` (même nature :
+        # fiscalité du capital, progressive car les revenus du capital sont concentrés dans
+        # les déciles supérieurs, DGFiP). Compétitivité : léger effet négatif (attractivité
+        # de l'épargne/investissement), ANALOGIE avec `isf_climatique`.
+        if self._is_first_year_change('pfu_bareme', {'intensite': intensite}):
+            gini = -0.004 * delta_revenue
+            competitivite = -0.0015 * delta_revenue
+        else:
+            gini = 0.0
+            competitivite = 0.0
+
+        impacts = {'recettes': delta_revenue, 'gini': gini, 'competitivite': competitivite}
+        _log_debug(self.debug_logs,
+            f"Y{year}: PFU->barème - Intensité {intensite*100:.0f}% -> recettes {delta_revenue:+.2f} Md€"
+        )
+        return 0, delta_revenue, impacts
+
+    def _apply_accises(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
+        """Levier sur le NIVEAU GLOBAL des droits d'accise indirects — TICPE
+        (carburants) + droits de consommation sur le tabac + droits sur les alcools —,
+        ajouté 2026-10 suite à une comparaison avec un simulateur tiers
+        (github.com/Vadech/moi-president) qui porte ce lever sous le nom "Excises/
+        product taxes" ; confirmation explicite utilisateur ("accise ok"). DISTINCT de
+        `tva_rate`/`tva_energie` : ce sont des droits SPÉCIFIQUES (montant fixe par
+        unité physique — hL, 1000 cigarettes — indexé), pas un taux ad valorem, donc un
+        levier séparé plutôt qu'un paramètre de plus sur `tva_rate`.
+        `variation_pct`=0 (défaut) = statu quo ; une variation relative est appliquée
+        IDENTIQUEMENT aux 3 composantes (pas de curseur séparé par produit, faute
+        d'élasticité comportementale publiée distinguant les 3 avec la même précision).
+        Assiette 49,0 Md€/an = TICPE 30,5 Md€ (2022, ministère Transition écologique,
+        ordre de grandeur stable 2023-2024) + droits tabac 13,95 Md€ (2024 prévision,
+        Sénat rapport n°638 2023-2024, données DGDDI) + droits alcools 4,565 Md€ (2024
+        provisoire, même source) — cf. constants.py pour le détail et les URLs. Élasticité
+        -0,4 : ESTIMATION PAR ANALOGIE, reprise du tabac (seule élasticité-prix publiée
+        avec cette précision parmi les 3, même rapport Sénat n°638) et appliquée aux 3
+        composantes faute de mieux, même démarche que `tva_rate`/`tva_energie`
+        ci-dessus. LIMITE ASSUMÉE : pas de ventilation par décile sourcée construite ici
+        malgré une étude de régressivité réelle trouvée pour CES 3 taxes précisément
+        (Insee ES413, Ruiz & Trannoy 2008, taux d'effort D1 4,3% vs D10 1,3% du revenu) —
+        cette étude ne publie pas le revenu moyen par décile dans le même tableau, et le
+        croiser avec une autre source pour fabriquer les 10 parts sommant à 1 serait une
+        combinaison non publiée telle quelle (même discipline que `quotient_familial`
+        ci-dessus) ; `accises` reste "non ventilée" dans `decile.py`, mais le facteur
+        gini/pouvoir d'achat ci-dessous EST calibré (par analogie, cf. constants.py) sur
+        cette étude pour refléter une régressivité plus marquée que `tva_energie`."""
+        variation_pct = params.get('variation_pct', 0.0)
+
+        if abs(variation_pct) < 1e-9:
+            return 0, 0, {}
+
+        # === RECETTES ===
+        # Amortissement comportemental (élasticité-prix -0,4, cf. docstring/constants.py) :
+        # une hausse (variation_pct>0) réduit le volume consommé, donc l'assiette
+        # effective ; une baisse l'augmente symétriquement — même mécanique que
+        # `tva_rate` (adjusted_base ci-dessus dans ce fichier).
+        adjusted_base = ACCISES_BASE_TOTAL_MD_EUR * (1 + ACCISES_ELASTICITE_PRIX * variation_pct)
+        delta_revenue = variation_pct * max(0.0, adjusted_base)
+
+        # === IMPACTS MACROÉCONOMIQUES ===
+        # Effets NIVEAU one-time (changement structurel du niveau des droits, pas un flux
+        # qui s'accumulerait année après année) — même idiome que `tva_energie` ci-dessus
+        # (years_elapsed == 0), pas `_is_first_year_change` (cohérence avec le handler le
+        # plus proche par nature : taxe de consommation régressive à taux modifiable).
+        years_elapsed = year - POLICY_START_YEAR
+        phasing = _year_phasing(years_elapsed, (1.0,))  # effet immédiat, pas de montée en charge
+
+        # Gini : accises = régressives (Insee ES413 : D1 paie 4,3% de son revenu en
+        # accises comportementales contre 1,3% pour D10). Une hausse (variation_pct>0)
+        # dégrade le Gini (+), une baisse l'améliore (-).
+        gini = _one_time_level(years_elapsed, ACCISES_GINI_FACTEUR * variation_pct * phasing)
+
+        # Pouvoir d'achat : une hausse de variation_pct renchérit le prix TTC des produits
+        # concernés d'environ variation_pct (la hausse du droit spécifique se répercute sur
+        # le prix), pesant sur le pouvoir d'achat à hauteur de la part de ces 3 produits
+        # dans le revenu disponible (ACCISES_PART_REVENU_MOYENNE, cf. constants.py).
+        pouvoir_achat = _one_time_level(years_elapsed, -variation_pct * ACCISES_PART_REVENU_MOYENNE * phasing)
+
+        # Compétitivité : NON modélisée (0,0), faute de source dédiée — contrairement à
+        # `impots_production`/`cotisations_patronales`, ces 3 accises pèsent
+        # essentiellement sur la consommation FINALE des ménages (TICPE bénéficie déjà de
+        # remboursements partiels pour le transport routier professionnel/l'agriculture,
+        # qui amortissent l'impact entreprise ; droits tabac/alcool sont des taxes de
+        # consommation finale par construction). Laissé à 0,0 plutôt qu'un chiffre inventé.
+        competitivite = 0.0
+
+        impacts = {
+            'recettes': delta_revenue,
+            'gini': gini,
+            'pouvoir_achat': pouvoir_achat,
+            'competitivite': competitivite,
+        }
+        _log_debug(self.debug_logs,
+            f"Y{year}: Accises (TICPE+tabac+alcool) - Variation {variation_pct*100:+.1f}% -> "
+            f"recettes {delta_revenue:+.2f} Md€"
+        )
         return 0, delta_revenue, impacts
 

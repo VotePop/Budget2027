@@ -3,15 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Maquette — Fiscalité (thème sombre)</title>
+<title>Maquette rapide — Fiscalité (liste compacte à activer)</title>
 <style>
   :root{
-    --bg:#111319; --surface:#1a1d27; --surface2:#20232f; --border:#2c3040;
+    --bg:#111319; --surface:#1a1d27; --surface2:#20232f; --surface3:#262a38; --border:#2c3040;
     --text:#f1f2f6; --muted:#9296a8; --muted2:#6d7186;
-    --accent:#2dd4bf;      /* teal vif — sliders, focus */
-    --accent2:#f5b942;     /* ambre vif — badges "recette" */
+    --accent:#2dd4bf; --accent2:#f5b942;
     --good:#34d399; --bad:#f87171; --flat:#8b90a3;
-    --advanced:#2a2d3a;
   }
   *{box-sizing:border-box;}
   body{
@@ -19,376 +17,278 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     padding-bottom:60px;
   }
-  header.top{
-    padding:18px 20px 14px; border-bottom:1px solid var(--border);
-    display:flex; flex-direction:column; gap:4px;
+  header.top{padding:16px 20px 12px; border-bottom:1px solid var(--border);}
+  header.top .inner{max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:5px;}
+  header.top h1{margin:0; font-size:1.2rem; letter-spacing:-0.01em;}
+  header.top p{margin:0; color:var(--muted); font-size:0.8rem; max-width:80ch; line-height:1.5;}
+  .note{
+    max-width:1180px; margin:12px auto 0; padding:10px 14px; border-radius:10px;
+    background:rgba(245,185,66,0.08); border:1px solid rgba(245,185,66,0.3);
+    font-size:0.78rem; color:var(--muted); line-height:1.55;
   }
-  header.top h1{margin:0; font-size:1.25rem; letter-spacing:-0.01em;}
-  header.top p{margin:0; color:var(--muted); font-size:0.82rem; max-width:70ch; line-height:1.5;}
-  header.top .tag{
-    display:inline-block; background:var(--surface2); color:var(--muted); font-size:0.7rem;
-    padding:2px 8px; border-radius:20px; border:1px solid var(--border); margin-top:6px; width:fit-content;
+  .note b{color:var(--accent2);}
+  main{max-width:1180px; margin:18px auto 0; padding:0 20px; display:flex; flex-direction:column; gap:26px;}
+
+  /* ---- Entête de thème ---- */
+  .theme{display:flex; flex-direction:column; gap:10px;}
+  .theme-head{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:6px 14px;}
+  .theme-head h2{margin:0; font-size:0.98rem; font-weight:700;}
+  .theme-count{font-size:0.76rem; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .theme-count b{color:var(--text);}
+  .theme-sub{margin:0; font-size:0.76rem; color:var(--muted2); max-width:90ch;}
+  .theme-bar{height:3px; border-radius:2px; background:var(--surface2); overflow:hidden; margin-top:2px;}
+  .theme-bar .fill{height:100%; background:var(--accent); border-radius:2px; transition:width 0.2s ease;}
+
+  /* ---- Grille compacte de leviers ---- */
+  /* align-items:start : sans ça, une grille CSS force toutes les cartes d'une même rangée à la
+     même hauteur — déplier TVA agrandissait alors IR/CSG/Cotisations à côté sans raison. */
+  .lever-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; align-items:start;}
+
+  .lever{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:8px 10px; display:flex; flex-direction:column; gap:0; transition:border-color 0.15s ease;
+    height:auto;
   }
-
-  /* ---- Barre de comparaison permanente ---- */
-  .compare-bar{
-    position:sticky; top:0; z-index:20; background:rgba(17,19,25,0.94); backdrop-filter:blur(6px);
-    border-bottom:1px solid var(--border); padding:10px 20px;
+  .lever.active{border-color:rgba(45,212,191,0.45);}
+  .lever-row{display:flex; align-items:flex-start; gap:8px;}
+  .lever-main{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; cursor:pointer;}
+  .lever-label{font-size:0.80rem; font-weight:600; line-height:1.25; display:flex; align-items:center; gap:7px;}
+  /* chevron agrandi + fond circulaire pour bien signaler que c'est un bouton cliquable
+     (trop discret avant : "on ne comprend pas qu'on peut replier la carte"). */
+  .lever-label .chev{
+    display:inline-flex; width:18px; height:18px; align-items:center; justify-content:center;
+    color:var(--muted); background:var(--surface2); border:1px solid var(--border); border-radius:50%;
+    font-size:0.68rem; transition:transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    flex:none;
   }
-  .compare-bar .row{display:flex; gap:10px; align-items:stretch; max-width:1180px; margin:0 auto; flex-wrap:wrap;}
-  .compare-legend{display:flex; gap:16px; max-width:1180px; margin:0 auto 8px; font-size:0.68rem; color:var(--muted2); text-transform:uppercase; letter-spacing:0.04em;}
-  .compare-legend span{display:flex; align-items:center; gap:5px;}
-  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
-  .dot.etat{background:var(--muted2);}
-  .dot.scenario{background:var(--accent);}
-  .kpi-tile{flex:1; min-width:150px; display:flex; flex-direction:column; gap:2px; padding:4px 14px; border-right:1px dashed var(--border);}
-  .kpi-tile:last-child{border-right:none;}
-  .kpi-tile .k{font-size:0.7rem; color:var(--muted); margin-bottom:2px;}
-  .kpi-tile .etat-line{font-size:0.76rem; color:var(--muted2); font-variant-numeric:tabular-nums;}
-  .kpi-tile .scenario-line{display:flex; align-items:baseline; gap:8px;}
-  .kpi-tile .scenario-line .v{font-variant-numeric:tabular-nums; font-size:1.25rem; font-weight:700;}
-  .kpi-tile .d{font-size:0.74rem; font-variant-numeric:tabular-nums;}
-  .kpi-tile .d.good{color:var(--good);} .kpi-tile .d.bad{color:var(--bad);} .kpi-tile .d.flat{color:var(--flat);}
-
-  main{max-width:1180px; margin:0 auto; padding:22px 20px;}
-
-  .funnel-section{margin-bottom:30px;}
-  .funnel-head{display:flex; align-items:baseline; gap:10px; margin-bottom:4px;}
-  .funnel-head h2{font-size:1.02rem; margin:0;}
-  .funnel-head .hint{font-size:0.78rem; color:var(--muted);}
-  .funnel-sub{font-size:0.8rem; color:var(--muted); margin:0 0 14px; max-width:70ch; line-height:1.5;}
-
-  .cards{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:14px;}
-
-  .card{
-    background:var(--surface); border:1px solid var(--border); border-radius:14px;
-    padding:16px; display:flex; flex-direction:column; gap:10px;
-    border-left:3px solid var(--accent2);
+  .lever-main:hover .lever-label .chev{border-color:var(--accent); color:var(--accent);}
+  .lever.open .lever-label .chev{transform:rotate(90deg); background:rgba(45,212,191,0.16); border-color:var(--accent); color:var(--accent);}
+  .lever-meta{font-size:0.68rem; color:var(--muted2); display:flex; gap:6px; align-items:center; flex-wrap:wrap;}
+  /* repère "avec ce réglage", visible même carte repliée dès qu'elle est activée. Dans cette
+     maquette (pas branchée au moteur), affiche un repère provisoire plutôt qu'un vrai chiffre —
+     la vraie version calculera ici l'impact en direct, comme sur la maquette actuelle. */
+  .lever-meta .impact-chip{
+    color:var(--accent2); font-style:italic;
   }
-  .card.advanced{border-left-color:var(--muted2); background:var(--advanced);}
-  .card .head{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
-  .card h3{margin:0; font-size:0.95rem; font-weight:600;}
-  .card .scope{font-size:0.76rem; color:var(--muted); line-height:1.45; margin:0;}
-  .badges{display:flex; gap:5px; flex-shrink:0;}
-  .badge{font-size:0.62rem; padding:2px 7px; border-radius:20px; white-space:nowrap; font-weight:600; letter-spacing:0.02em;}
-  .badge.recette{background:rgba(245,185,66,0.15); color:var(--accent2); border:1px solid rgba(245,185,66,0.35);}
-  .badge.decile{background:rgba(45,212,191,0.15); color:var(--accent); border:1px solid rgba(45,212,191,0.35);}
+  .lever-meta .tag{
+    font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em; padding:1px 5px; border-radius:20px;
+    border:1px solid var(--border); color:var(--muted);
+  }
+  .lever-meta .tag.indep{color:var(--accent2); border-color:rgba(245,185,66,0.4); background:rgba(245,185,66,0.08);}
+  .lever-meta .tag.decile{color:var(--accent); border-color:rgba(45,212,191,0.35);}
 
-  .chiffrage{
-    display:flex; flex-direction:column; gap:2px;
-    background:var(--surface2); border-radius:9px; padding:8px 10px; font-size:0.78rem;
-  }
-  .chiffrage .lbl{color:var(--muted); font-size:0.68rem; text-transform:uppercase; letter-spacing:0.03em;}
-  .chiffrage .val{font-variant-numeric:tabular-nums; font-weight:600; line-height:1.35;}
-  .subnote{font-size:0.76rem; color:var(--muted2); font-style:italic; padding-top:8px; border-top:1px solid var(--border);}
-
-  .field{display:flex; flex-direction:column; gap:4px;}
-  .field .row{display:flex; justify-content:space-between; align-items:baseline;}
-  .field label{font-size:0.78rem; color:var(--muted);}
-  .field .cur{font-variant-numeric:tabular-nums; font-weight:600; font-size:0.86rem;}
-  input[type=range]{
-    -webkit-appearance:none; width:100%; height:4px; border-radius:2px;
-    background:linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--pct,50%), var(--border) var(--pct,50%), var(--border) 100%);
-    outline:none;
-  }
-  input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
-    background:var(--accent); border:3px solid var(--bg); box-shadow:0 0 0 1px var(--accent);
-    cursor:pointer;
-  }
-  .toggle-row{display:flex; align-items:center; justify-content:space-between;}
-  .switch{position:relative; width:38px; height:21px; flex-shrink:0;}
+  /* interrupteur compact */
+  .switch{position:relative; display:inline-block; width:30px; height:17px; flex:none; margin-top:1px;}
   .switch input{opacity:0; width:0; height:0;}
-  .slider-tgl{position:absolute; inset:0; background:var(--border); border-radius:20px; cursor:pointer; transition:.15s;}
-  .slider-tgl::before{content:""; position:absolute; width:15px; height:15px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s;}
-  input:checked + .slider-tgl{background:var(--accent);}
-  input:checked + .slider-tgl::before{transform:translateX(17px);}
-
-  .impact-live{
-    display:flex; justify-content:space-between; align-items:center;
-    font-size:0.8rem; padding-top:8px; border-top:1px solid var(--border);
+  .switch .tgl{
+    position:absolute; inset:0; background:var(--surface3); border:1px solid var(--border);
+    border-radius:20px; cursor:pointer; transition:background 0.15s ease;
   }
-  .impact-live .k{color:var(--muted);}
-  .impact-live .v{font-variant-numeric:tabular-nums; font-weight:700;}
-  .impact-live .v.good{color:var(--good);} .impact-live .v.bad{color:var(--bad);} .impact-live .v.flat{color:var(--flat);}
-  .chiffrage.changed{background:rgba(45,212,191,0.08); border:1px solid rgba(45,212,191,0.3);}
-  .chiffrage .val.good{color:var(--good);} .chiffrage .val.bad{color:var(--bad);}
-
-  .fine-toggle{
-    background:none; border:none; color:var(--accent); font-size:0.76rem; cursor:pointer;
-    padding:2px 0; text-align:left; width:fit-content;
+  .switch .tgl::before{
+    content:""; position:absolute; width:11px; height:11px; left:2px; top:2px; background:var(--muted);
+    border-radius:50%; transition:transform 0.15s ease, background 0.15s ease;
   }
-  .fine-toggle:hover{text-decoration:underline;}
-  .fine-wrap{display:none; flex-direction:column; gap:12px; padding:10px; margin-top:-2px;
-    background:var(--surface2); border-radius:9px; border:1px solid var(--border);}
-  .fine-wrap.open{display:flex;}
-  .fine-field .scope-mini{font-size:0.72rem; color:var(--muted); margin:0 0 4px;}
+  .switch input:checked + .tgl{background:rgba(45,212,191,0.25); border-color:var(--accent);}
+  .switch input:checked + .tgl::before{transform:translateX(13px); background:var(--accent);}
 
-  .adv-toggle-wrap{text-align:center; margin:8px 0 2px;}
-  button.adv-toggle{
-    background:var(--surface2); color:var(--text); border:1px solid var(--border);
-    padding:9px 18px; border-radius:30px; font-size:0.82rem; cursor:pointer;
+  /* panneau détail, replié par défaut */
+  .lever-detail{display:none; flex-direction:column; gap:8px; margin-top:8px; padding-top:8px; border-top:1px solid var(--border);}
+  .lever.open .lever-detail{display:flex;}
+  .lever-scope{font-size:0.72rem; color:var(--muted); line-height:1.5; margin:0;}
+  .lever-chiffrage{
+    display:flex; justify-content:space-between; align-items:baseline; font-size:0.72rem;
+    background:var(--surface2); border-radius:7px; padding:5px 8px; color:var(--muted);
   }
-  button.adv-toggle:hover{border-color:var(--accent);}
-  #advanced-wrap{display:none;}
-  #advanced-wrap.open{display:block;}
+  .lever-chiffrage .val{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums;}
+  .lever-chiffrage.impact-placeholder{background:rgba(245,185,66,0.08); border:1px dashed rgba(245,185,66,0.35);}
+  .lever-chiffrage.impact-placeholder .val.placeholder{color:var(--accent2); font-weight:500; font-style:italic; font-variant-numeric:initial;}
+  .lever-chiffrage.impact-placeholder.changed{background:var(--surface2); border-style:solid; border-color:var(--border);}
+  .lever-chiffrage .val.good{color:var(--good);}
+  .lever-chiffrage .val.bad{color:var(--bad);}
+  .lever-chiffrage .val.flat{color:var(--muted); font-style:italic; font-weight:500; font-variant-numeric:initial;}
+  .impact-chip.good{color:var(--good); font-style:normal;}
+  .impact-chip.bad{color:var(--bad); font-style:normal;}
+  .lever-field{display:flex; flex-direction:column; gap:3px;}
+  .lever-field .row{display:flex; justify-content:space-between; align-items:baseline; font-size:0.72rem; color:var(--muted);}
+  .lever-field .row .cur{color:var(--text); font-weight:700; font-variant-numeric:tabular-nums;}
+  .slider-track-wrap{position:relative;}
+  input[type="range"]{
+    width:100%; appearance:none; height:4px; border-radius:3px; background:var(--surface3); outline:none;
+    --pct:0%;
+    background-image:linear-gradient(var(--accent), var(--accent));
+    background-repeat:no-repeat; background-size:var(--pct) 100%;
+  }
+  input[type="range"]:disabled{opacity:0.35;}
+  input[type="range"]::-webkit-slider-thumb{
+    appearance:none; width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer;
+    border:2px solid var(--bg);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--bg);
+  }
+  .default-tick{position:absolute; top:50%; width:2px; height:9px; transform:translate(-50%,-50%); background:var(--muted2); opacity:0.9; border-radius:1px; pointer-events:none;}
 
-  footer.note{max-width:1180px; margin:0 auto; padding:0 20px 30px; font-size:0.72rem; color:var(--muted2); line-height:1.6;}
-  footer.note a{color:var(--accent);}
-  .mockup-banner{
-    background:#3a2f13; color:#f5d98a; text-align:center; font-size:0.78rem; padding:6px; border-bottom:1px solid #5c4a1c;
+  /* mesures imbriquées (sous-paramètres + mesures indépendantes repliées) */
+  .nested-group{display:flex; flex-direction:column; gap:6px;}
+  .nested-group-title{font-size:0.64rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted2); margin:2px 0 -2px;}
+  .nested{
+    border-radius:8px; padding:7px 8px; display:flex; flex-direction:column; gap:6px;
   }
+  .nested.sub{background:rgba(45,212,191,0.06); border:1px solid rgba(45,212,191,0.18);}
+  .nested.folded{background:rgba(245,185,66,0.06); border:1px dashed rgba(245,185,66,0.3);}
+  .nested-head{display:flex; align-items:flex-start; gap:6px;}
+  .nested-head .lbl{flex:1; font-size:0.74rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;}
+  .nested-head .lbl .chev{
+    display:inline-flex; width:15px; height:15px; align-items:center; justify-content:center;
+    color:var(--muted); background:var(--surface2); border:1px solid var(--border); border-radius:50%;
+    font-size:0.6rem; transition:transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    flex:none;
+  }
+  .nested-head .lbl:hover .chev{border-color:var(--accent); color:var(--accent);}
+  .nested.open .nested-head .lbl .chev{transform:rotate(90deg); background:rgba(45,212,191,0.16); border-color:var(--accent); color:var(--accent);}
+  .nested-scope{font-size:0.68rem; color:var(--muted); line-height:1.45; margin:0; display:none;}
+  .nested.open .nested-scope{display:block;}
+  .nested .lever-field{display:none;}
+  .nested.open .lever-field{display:flex;}
+  .nested .lever-chiffrage{display:none;}
+  .nested.open .lever-chiffrage{display:flex;}
+  .switch.sm{width:26px; height:15px;}
+  .switch.sm .tgl::before{width:9px; height:9px;}
+  .switch.sm input:checked + .tgl::before{transform:translateX(11px);}
+
+  footer.foot{max-width:1180px; margin:30px auto 0; padding:0 20px; font-size:0.72rem; color:var(--muted2); line-height:1.6;}
 </style>
 </head>
 <body>
-
-<div class="mockup-banner">🧪 Maquette de travail — thématique « Fiscalité » uniquement, pour validation avant refonte complète du site.</div>
-<div class="mockup-banner" id="api-error-banner" style="display:none; background:#3a1313; color:#f5a3a3; border-bottom-color:#5c1c1c;">
-  ⚠️ Impossible de contacter le moteur de simulation — les chiffrages ne peuvent pas se mettre à jour. Cette page doit être ouverte via le serveur local (ex. <code>http://127.0.0.1:8321/ui/mockup_fiscalite.html</code> après avoir lancé <code>uvicorn api:app</code>), pas en double-cliquant sur le fichier.
-</div>
-
 <header class="top">
-  <h1>Simulateur Budget France</h1>
-  <p>Ajustez les leviers fiscaux ci-dessous. Chaque carte indique le champ d'action du levier, son poids actuel dans le budget de l'État, et l'effet chiffré de votre réglage — en temps réel.</p>
-  <span class="tag">Moteur : france-budget-simulateur (AGPL-3.0) · valeurs par défaut = budget de l'État en vigueur</span>
+  <div class="inner">
+    <h1>Fiscalité — liste compacte à activer</h1>
+    <p>Maquette rapide (option B) : chaque levier démarre désactivé et replié. On l'active avec l'interrupteur, puis on déplie le chevron pour voir le détail et régler le curseur. Objectif : comparer à la disposition actuelle (3 colonnes, tout déplié).</p>
+  </div>
+  <div class="note">
+    <b>Rebranchée sur le vrai moteur</b> — les valeurs « Avec ce réglage » (dépliée ou repliée) sont maintenant calculées en direct par <code>/simulate_decile</code>, comme sur la maquette actuelle. Un levier désactivé (interrupteur gris) envoie sa valeur par défaut au moteur, donc aucun effet. Sert à valider que les chiffres sont bien les mêmes que sur la disposition en 3 colonnes.
+  </div>
+  <div class="note" id="api-error-banner" style="display:none; background:rgba(248,113,113,0.1); border-color:rgba(248,113,113,0.4);">
+    <b>API injoignable</b> — l'appel à <code>/simulate_decile</code> a échoué (ouvre cette page via le serveur uvicorn, ex. <code>http://127.0.0.1:PORT/ui/mockup_fiscalite_compact.html</code>, pas un simple fichier local).
+  </div>
 </header>
-
-<div class="compare-bar">
-  <div class="compare-legend">
-    <span><span class="dot etat"></span> Budget de l'État (référence, non modifié)</span>
-    <span><span class="dot scenario"></span> Votre scénario (leviers ci-dessous)</span>
-  </div>
-  <div class="row" id="compare-row"><!-- rempli en JS --></div>
-</div>
-
-<main>
-  <div class="funnel-section">
-    <div class="funnel-head"><h2>Leviers principaux</h2><span class="hint">— les 6 leviers fiscaux au poids budgétaire le plus important</span></div>
-    <p class="funnel-sub">De quoi ajuster l'essentiel sans entrer dans le détail technique de chaque impôt.</p>
-    <div class="cards" id="cards-principaux"></div>
-  </div>
-
-  <div class="adv-toggle-wrap">
-    <button class="adv-toggle" id="adv-toggle">Afficher les réglages avancés (6 leviers + paramètres fins) ▾</button>
-  </div>
-
-  <div id="advanced-wrap">
-    <div class="funnel-section" style="margin-top:20px;">
-      <div class="funnel-head"><h2>Réglages avancés</h2><span class="hint">— leviers plus ciblés et paramètres fins des leviers principaux</span></div>
-      <div class="cards" id="cards-avances"></div>
-    </div>
-  </div>
-</main>
-
-<footer class="note">
-  Le « chiffrage actuel » est un ordre de grandeur du poids de l'impôt aujourd'hui, sourcé séparément du moteur de simulation
-  (DGFiP, mars 2026, classement des recettes fiscales 2025 ; ACOSS/DREES pour les cotisations et la CSG) — il situe le levier,
-  il n'est pas recalculé par le moteur. L'effet chiffré (« avec ce réglage ») est, lui, calculé par le moteur de simulation
-  exactement comme dans l'outil complet. Code source :
-  <a href="https://github.com/VotePop/Budget2027" target="_blank">github.com/VotePop/Budget2027</a>
+<main id="themes"></main>
+<footer class="foot">
+  Points à trancher avec Cédric avant d'aller plus loin : (1) garder les badges « recette »/« ventilé décile » tels quels ou les simplifier encore ? (2) le repère « valeur du budget de l'État » sur le curseur — on le garde dans cette version ? (3) les mesures indépendantes (fond pointillé ambre) doivent-elles avoir leur propre interrupteur comme ici, ou rester de simples sous-sections sans activation séparée ? (4) faut-il compter un levier comme « activé » dès que l'interrupteur est sur Oui, même si le curseur reste à sa valeur par défaut ?
 </footer>
-
 <script>
-const API_BASE = "";
-const PERIODS = 5;
-
-// ---- Définition des leviers (issue de policy_measures.json, catégorie "fiscalite") ----
-// "chiffrage" : ordre de grandeur du poids ACTUEL de l'impôt dans le budget (source indépendante,
-// indicative — voir note de bas de page), PAS une sortie du moteur.
-// "chiffrageMdEur" (nombre) : quand présent, la carte fusionne "aujourd'hui" et "avec ce
-// réglage" en une seule ligne dynamique (chiffrageMdEur + delta moteur). Absent quand le
-// chiffrage n'est pas une base en Md€ homogène avec le delta (ex. un taux, un %).
-const LEVERS_PRINCIPAUX = [
-  {id:"tva_rate", param:"taux", key:"tva_rate__taux", label:"Taux de TVA",
-   scope:"Taux normal de TVA (biens et services courants). Les 3 autres taux officiels — intermédiaire, réduit, particulier — se règlent séparément ci-dessous.",
-   min:0.15, max:0.25, step:0.005, default:0.20, fmt:"pct1", decile:true,
-   chiffrage:"211,7 Md€ / an", chiffrageMdEur:211.7, chiffrageSrc:"DGFiP, classement recettes fiscales 2025 (mars 2026) — taux normal uniquement",
-   subParams:[
-     {param:"taux_intermediaire", key:"tva_rate__taux_intermediaire", label:"Taux intermédiaire", scope:"Restauration, transport de voyageurs, travaux de rénovation, hébergement...",
-      min:0.055, max:0.20, step:0.005, default:0.10, fmt:"pct1",
-      chiffrage:"rendement d'1 point : 1,6 Md€", chiffrageSrc:"DG Trésor, Trésor-Éco n°371 (09/2025), tableau 1"},
-     {param:"taux_reduit", key:"tva_rate__taux_reduit", label:"Taux réduit", scope:"Alimentation, livres, énergie (abonnements), équipements pour personnes handicapées...",
-      min:0.021, max:0.10, step:0.005, default:0.055, fmt:"pct1",
-      chiffrage:"rendement d'1 point : 2,0 Md€", chiffrageSrc:"DG Trésor, Trésor-Éco n°371 (09/2025), tableau 1"},
-     {param:"taux_particulier", key:"tva_rate__taux_particulier", label:"Taux particulier", scope:"Presse, médicaments remboursables par la Sécurité sociale.",
-      min:0.010, max:0.10, step:0.005, default:0.021, fmt:"pct1",
-      chiffrage:"rendement d'1 point : 0,4 Md€", chiffrageSrc:"DG Trésor, Trésor-Éco n°371 (09/2025), tableau 1"},
-   ]},
-  {id:"impot_societes", param:"taux", key:"impot_societes__taux", label:"Impôt sur les sociétés", scope:"Taux normal d'IS appliqué aux bénéfices des entreprises soumises à l'IS.",
-   min:0.15, max:0.35, step:0.01, default:0.25, fmt:"pct0", decile:true,
-   chiffrage:"69,3 Md€ / an", chiffrageMdEur:69.3, chiffrageSrc:"DGFiP 2025 (IS + contributions)",
-   subParams:[
-     {param:"niches", key:"impot_societes__niches", label:"Niches IS hors CIR", scope:"Réduction des niches fiscales de l'IS, hors crédit d'impôt recherche.",
-      min:0, max:25, step:1, default:0, fmt:"md"},
-   ]},
-  {id:"impot_revenu", param:"taux_superieur", key:"impot_revenu__taux_superieur", label:"Impôt sur le revenu (tranche >160k€)", scope:"Taux marginal appliqué à la tranche de revenu imposable la plus élevée du barème IR.",
-   min:0.40, max:0.60, step:0.01, default:0.45, fmt:"pct0", decile:false,
-   chiffrage:"95,3 Md€ / an (IR total)", chiffrageMdEur:95.3, chiffrageSrc:"DGFiP 2025 — la tranche >160k€ n'en représente qu'une fraction du total, delta affiché sur l'ensemble de l'IR",
-   subParams:[
-     {param:"decote", key:"impot_revenu__decote", label:"Décote IR", scope:"Ajuste le mécanisme de décote qui allège l'impôt des foyers modestes (1 = barème actuel).",
-      min:0.5, max:1.5, step:0.1, default:1.0, fmt:"mult"},
-   ]},
-  {id:"csg", param:"taux", key:"csg__taux", label:"CSG / CRDS", scope:"Taux global de contribution sociale généralisée et de remboursement de la dette sociale, sur une assiette large (revenus d'activité, remplacement, capital).",
-   min:0.08, max:0.12, step:0.001, default:0.097, fmt:"pct1", decile:true,
-   chiffrage:"≈153 Md€ / an", chiffrageMdEur:153, chiffrageSrc:"DREES/ACOSS 2024 (ordre de grandeur, toutes assiettes)",
-   subParams:[
-     {param:"progressive", key:"csg__progressive", label:"CSG progressive", scope:"Rend la CSG progressive par décile de niveau de vie au lieu d'un taux uniforme (neutre sur le total des recettes).", bool:true, default:0},
-   ]},
-  {id:"cotisations_salariales", param:"baisse_points", key:"cotisations_salariales__baisse_points", label:"Cotisations salariales", scope:"Baisse du taux de cotisations sociales salariales (part payée par le salarié), sur l'assiette des ~30M salariés du privé.",
-   min:0, max:5, step:0.5, default:0, fmt:"pts", decile:true,
-   chiffrage:"taux actuel 22%", chiffrageSrc:"DARES 2024, ACOSS — cotisations sociales tous régimes ≈400 Md€/an au total (part salariale + patronale)"},
-  {id:"fiscalite_patrimoine", param:"intensite", key:"fiscalite_patrimoine__intensite", label:"Fiscalité du patrimoine", scope:"Fiscalité globale du patrimoine : IFI + droits de succession + taxe foncière, ajustés simultanément.",
-   min:-0.30, max:0.30, step:0.05, default:0, fmt:"pct0signed", decile:true,
-   chiffrage:"53 Md€ / an (IFI 2 + Succession 15 + Foncière 36)", chiffrageMdEur:53, chiffrageSrc:"DGFiP 2024, IPP"},
+// Données reprises à l'identique de mockup_fiscalite.html (mêmes libellés, bornes, sources).
+const THEMES = [
+  {
+    key:"menages", label:"🧑‍🤝‍🧑 Fiscalité des ménages",
+    sub:"TVA, impôt sur le revenu, cotisations, CSG — ce qui pèse directement sur les particuliers.",
+    levers:[
+      {id:"tva_rate", param:"taux", key:"tva_rate__taux", label:"TVA",
+       scope:"Taux normal de TVA (biens et services courants). Au-delà d'environ 35-37%, le modèle affiche une recette additionnelle qui plafonne plutôt que de continuer à augmenter.",
+       min:0, max:0.40, step:0.005, default:0.20, fmt:"pct1", decile:true,
+       chiffrage:"211,7 Md€ / an", chiffrageMdEur:211.7,
+       subParams:[
+         {param:"taux_intermediaire", key:"tva_rate__taux_intermediaire", label:"Taux intermédiaire", scope:"Restauration, transport de voyageurs, travaux de rénovation, hébergement...",
+          min:0, max:0.30, step:0.005, default:0.10, fmt:"pct1"},
+         {param:"taux_reduit", key:"tva_rate__taux_reduit", label:"Taux réduit", scope:"Alimentation, livres, énergie (abonnements), équipements pour personnes handicapées...",
+          min:0, max:0.20, step:0.005, default:0.055, fmt:"pct1"},
+         {param:"taux_particulier", key:"tva_rate__taux_particulier", label:"Taux particulier", scope:"Presse, médicaments remboursables par la Sécurité sociale.",
+          min:0, max:0.10, step:0.001, default:0.021, fmt:"pct1"},
+       ],
+       folded:[
+         {id:"tva_energie", param:"taux", key:"tva_energie__taux", label:"TVA Énergie", scope:"Taux unique de TVA sur le gaz et l'électricité. Taux simulé librement.",
+          min:0, max:0.50, step:0.005, default:0.20, fmt:"pct1", decile:true, chiffrage:"24 Md€ / an", chiffrageMdEur:24},
+       ]},
+      {id:"impot_revenu", param:"taux_superieur", key:"impot_revenu__taux_superieur", label:"Impôt sur le revenu (barème)",
+       scope:"Regroupe 2 curseurs de la même mesure fiscale : le taux marginal (tranche >160k€) et la décote (foyers modestes) — 2 mécanismes indépendants, pas liés entre eux.",
+       min:0.40, max:0.60, step:0.01, default:0.45, fmt:"pct0", decile:false,
+       chiffrage:"95,3 Md€ / an (IR total)", chiffrageMdEur:95.3,
+       subParams:[
+         {param:"decote", key:"impot_revenu__decote", label:"Décote IR (foyers modestes)", scope:"Ajuste le mécanisme de décote qui allège l'impôt des foyers modestes (1 = barème actuel). Ne dépend pas de la tranche >160k€ ci-dessus.",
+          min:0.5, max:1.5, step:0.1, default:1.0, fmt:"mult"},
+       ],
+       folded:[
+         {id:"elargissement_ir", param:"taux_contribuables_cible", key:"elargissement_ir__taux_contribuables_cible", label:"Élargissement de la base IR", scope:"Change la part des foyers qui paient effectivement l'IR (45% aujourd'hui), à la hausse ou à la baisse.",
+          min:0.20, max:1.0, step:0.01, default:0.45, fmt:"pct0", chiffrage:"45% des foyers imposés"},
+         {id:"abattement_retraites", param:"montant", key:"abattement_retraites__montant", label:"Abattement fiscal retraités", scope:"Remplace l'abattement de 10% (plafonné 4399€) par un forfait par personne. 0€ = système actuel inchangé.",
+          min:0, max:10000, step:250, default:0, fmt:"eur", chiffrage:"régime actuel : abattement 10%"},
+         {id:"cdhr", param:"intensite", key:"cdhr__intensite", label:"CDHR (impôt minimum hauts revenus)", scope:"Contribution différentielle sur les hauts revenus (RFR >250k€ seul / 500k€ couple). 1,0 = régime actuel.",
+          min:0, max:1.5, step:0.1, default:1.0, fmt:"mult", decile:true, chiffrage:"rendement réel 2026 : 0,65 Md€/an", chiffrageMdEur:0.65},
+       ]},
+      {id:"csg", param:"taux", key:"csg__taux", label:"CSG / CRDS", scope:"Taux global de contribution sociale généralisée, sur une assiette large (revenus d'activité, remplacement, capital).",
+       min:0.08, max:0.12, step:0.001, default:0.097, fmt:"pct1", decile:true, chiffrage:"≈153 Md€ / an", chiffrageMdEur:153,
+       subParams:[
+         {param:"progressive", key:"csg__progressive", label:"CSG progressive", scope:"Rend la CSG progressive par décile de niveau de vie au lieu d'un taux uniforme.", bool:true, default:0},
+       ]},
+      {id:"cotisations_salariales", param:"baisse_points", key:"cotisations_salariales__baisse_points", label:"Cotisations salariales",
+       scope:"Variation du taux de cotisations sociales salariales. Positif = baisse, négatif = hausse.",
+       min:-3, max:5, step:0.5, default:0, fmt:"ptssigned", decile:true, chiffrage:"taux actuel 22%"},
+    ]
+  },
+  {
+    key:"entreprises", label:"🏢 Fiscalité des entreprises",
+    sub:"Impôt sur les sociétés et mesures ciblées sur les bénéfices et la fraude.",
+    levers:[
+      {id:"impot_societes", param:"taux", key:"impot_societes__taux", label:"Impôt sur les sociétés", scope:"Taux normal d'IS appliqué aux bénéfices des entreprises soumises à l'IS.",
+       min:0.15, max:0.35, step:0.01, default:0.25, fmt:"pct0", decile:true, chiffrage:"69,3 Md€ / an", chiffrageMdEur:69.3,
+       subParams:[
+         {param:"niches", key:"impot_societes__niches", label:"Niches IS hors CIR", scope:"Réduction des niches fiscales de l'IS, hors crédit d'impôt recherche.", min:0, max:25, step:1, default:0, fmt:"md"},
+       ],
+       folded:[
+         {id:"taxe_superprofits", param:"intensite", key:"taxe_superprofits__intensite", label:"Taxe sur les superprofits", scope:"Taxe temporaire (3 ans) sur les profits excédant leur niveau moyen 2018-2021.",
+          min:0, max:1, step:0.1, default:0, fmt:"pct0", chiffrage:"0 € aujourd'hui (taxe inexistante)", chiffrageMdEur:0},
+         {id:"ttf", param:"taux", key:"ttf__taux", label:"Taxe sur les transactions financières", scope:"Achats d'actions de sociétés françaises cotées (seuil ~1 Md€ de capitalisation).",
+          min:0.001, max:0.01, step:0.0005, default:0.004, fmt:"pct2", chiffrage:"2,5 Md€ / an (taux 0,4%)", chiffrageMdEur:2.5},
+         {id:"taxe_gafa", param:"taux", key:"taxe_gafa__taux", label:"Taxe sur les services numériques (GAFA)", scope:"Chiffre d'affaires numérique des grandes entreprises tech (seuil CA mondial 750 M€).",
+          min:0.01, max:0.08, step:0.005, default:0.03, fmt:"pct1", chiffrage:"0,7 Md€ / an (taux 3%)", chiffrageMdEur:0.7},
+       ]},
+      {id:"fraude_fiscale", param:"effort", key:"fraude_fiscale__effort", label:"Lutte contre la fraude fiscale", scope:"Intensité des contrôles fiscaux et sociaux (IA/data mining), de 0 (statu quo) à 1 (effort maximal).",
+       min:0, max:1, step:0.1, default:0, fmt:"pct0", chiffrage:"gisement estimé 80-100 Md€"},
+    ]
+  },
+  {
+    key:"patrimoine", label:"🏛️ Fiscalité du patrimoine",
+    sub:"IFI, succession, foncier — ajustés ensemble ou via une alternative climatique.",
+    levers:[
+      {id:"fiscalite_patrimoine", param:"intensite", key:"fiscalite_patrimoine__intensite", label:"Fiscalité du patrimoine", scope:"Fiscalité globale du patrimoine : IFI + droits de succession + taxe foncière, ajustés simultanément.",
+       min:-0.30, max:0.30, step:0.05, default:0, fmt:"pct0signed", decile:true, chiffrage:"53 Md€ / an (IFI 2 + Succession 15 + Foncière 36)", chiffrageMdEur:53,
+       folded:[
+         {id:"isf_climatique", param:"intensite", key:"isf_climatique__intensite", label:"ISF Climatique", scope:"Remplace l'IFI par un ISF climatique élargi (assiette + bonus écologique).",
+          min:0, max:1, step:0.01, default:0, fmt:"pct0", chiffrage:"IFI actuel : 2 Md€ / an", chiffrageMdEur:2},
+         {id:"taxe_holdings_patrimoniales", param:"taux", key:"taxe_holdings_patrimoniales__taux", label:"Taxe sur les holdings patrimoniales", scope:"Patrimoine financier des holdings familiales (≥5 M€ d'actifs, revenus passifs >50% du total).",
+          min:0, max:0.04, step:0.005, default:0.02, fmt:"pct1", decile:true, chiffrage:"≈1,0 Md€ / an (taux 2%, PLF 2026)", chiffrageMdEur:1.0},
+       ]},
+    ]
+  },
 ];
-
-const LEVERS_AVANCES = [
-  {id:"fraude_fiscale", param:"effort", key:"fraude_fiscale__effort", label:"Lutte contre la fraude fiscale", scope:"Intensité des contrôles fiscaux et sociaux (IA/data mining), de 0 (statu quo) à 1 (effort maximal).",
-   min:0, max:1, step:0.1, default:0, fmt:"pct0", decile:false,
-   chiffrage:"gisement estimé 80-100 Md€", chiffrageSrc:"DGFiP 2024 (potentiel recouvrable, pas une recette actuelle)"},
-  {id:"abattement_retraites", param:"reforme_active", key:"abattement_retraites__reforme_active", label:"Abattement fiscal retraités", scope:"Remplace l'abattement de 10% (plafonné 4399€) par un forfait de 2000€.", bool:true,
-   default:0, decile:false, chiffrage:null},
-  {id:"elargissement_ir", param:"taux_contribuables_cible", key:"elargissement_ir__taux_contribuables_cible", label:"Élargissement de la base IR", scope:"Augmente la part des foyers qui paient effectivement l'IR (45% aujourd'hui).",
-   min:0.45, max:0.70, step:0.01, default:0.45, fmt:"pct0", decile:false,
-   chiffrage:"45% des foyers imposés", chiffrageSrc:"DGFiP 2024 (19M/41M foyers)"},
-  {id:"isf_climatique", param:"intensite", key:"isf_climatique__intensite", label:"ISF Climatique", scope:"Remplace l'IFI par un ISF climatique élargi (assiette + bonus écologique).",
-   min:0, max:1, step:0.01, default:0, fmt:"pct0", decile:false,
-   chiffrage:"IFI actuel : 2 Md€ / an", chiffrageMdEur:2, chiffrageSrc:"DGFiP 2024"},
-  {id:"taxe_superprofits", param:"intensite", key:"taxe_superprofits__intensite", label:"Taxe sur les superprofits", scope:"Taxe temporaire (3 ans) sur les profits excédant leur niveau moyen 2018-2021.",
-   min:0, max:1, step:0.1, default:0, fmt:"pct0", decile:false,
-   chiffrage:"0 € aujourd'hui (taxe inexistante)", chiffrageMdEur:0, chiffrageSrc:null},
-  {id:"tva_energie", param:"taux", key:"tva_energie__taux", label:"TVA Énergie", scope:"Taux unique de TVA sur le gaz et l'électricité.",
-   min:0.055, max:0.20, step:0.005, default:0.20, fmt:"pct1", decile:false,
-   chiffrage:"24 Md€ / an", chiffrageMdEur:24, chiffrageSrc:"calcul moteur (conso. 120 Md€/an × taux actuel 20%)"},
-];
-
-// Vue "à plat" : chaque sous-paramètre hérite de l'id de mesure de son parent (même
-// mesure budgétaire), pour buildMesures()/le calcul d'impact/le câblage des events.
-function flattenLevers(){
-  const flat = [];
-  [...LEVERS_PRINCIPAUX, ...LEVERS_AVANCES].forEach(l => {
-    flat.push(l);
-    (l.subParams||[]).forEach(sp => flat.push(Object.assign({id:l.id, parentKey:l.key}, sp)));
-  });
-  return flat;
-}
-const ALL_LEVERS = flattenLevers();
-
-let state = {};
-ALL_LEVERS.forEach(l => state[l.key] = l.default);
-
-let baselineKpis = null;
-let lastImpacts = {};
 
 function fmtValue(l, v){
   if (l.bool) return v ? "Oui" : "Non";
   switch(l.fmt){
     case "pct1": return (v*100).toFixed(1) + "%";
+    case "pct2": return (v*100).toFixed(2) + "%";
     case "pct0": return (v*100).toFixed(0) + "%";
     case "pct0signed": return (v>=0?"+":"") + (v*100).toFixed(0) + "%";
-    case "pts": return v.toFixed(1) + " pt" + (v>1?"s":"");
+    case "ptssigned": return v===0 ? "0 pt (inchangé)" : (v>0 ? "-"+v.toFixed(1)+" pt (baisse)" : "+"+Math.abs(v).toFixed(1)+" pt (hausse)");
     case "md": return v.toFixed(0) + " Md€";
     case "mult": return "×" + v.toFixed(1);
+    case "eur": return v.toFixed(0) + "€";
     default: return v;
   }
 }
 
+// Branchement réel sur le moteur (demande explicite : "je veux bien que tu rebranches pour
+// valider"). Même endpoint/contrat que mockup_fiscalite.html : POST /simulate_decile avec
+// {mesures, periods}, réponse.measure_impacts[dernière année][id mesure].recettes = delta Md€/an
+// vs État pour CETTE mesure seule (un seul delta par mesure moteur, pas par curseur — donc les
+// subParams n'ont pas leur propre ligne, leur effet est inclus dans le delta de la carte parente).
+const API_BASE = "";
+const PERIODS = 5;
+let baselineReady = false;
+
 function fmtMdDelta(v){
   if (v === undefined || v === null) return "—";
-  const s = v >= 0 ? "+" : "";
-  return s + v.toFixed(1) + " Md€";
-}
-
-function buildMesures(){
-  const mesures = {};
-  ALL_LEVERS.forEach(l => {
-    mesures[l.id] = Object.assign({}, mesures[l.id], {[l.param]: state[l.key]});
-  });
-  return mesures;
-}
-
-function controlHtml(l){
-  return l.bool ? `
-    <div class="toggle-row">
-      <span style="font-size:0.86rem;">Activer</span>
-      <label class="switch"><input type="checkbox" id="${l.key}" ${state[l.key] ? "checked" : ""}><span class="slider-tgl"></span></label>
-    </div>` : `
-    <div class="field">
-      <div class="row"><label for="${l.key}">Réglage</label><span class="cur" id="${l.key}-val">${fmtValue(l, state[l.key])}</span></div>
-      <input type="range" id="${l.key}" min="${l.min}" max="${l.max}" step="${l.step}" value="${state[l.key]}">
-    </div>`;
-}
-
-function fixedCardHtml(l, advanced){
-  const badges = [];
-  if (l.chiffrage) badges.push(`<span class="badge recette">recette</span>`);
-  if (l.decile) badges.push(`<span class="badge decile">ventilé décile</span>`);
-  const chiffrageHtml = l.chiffrage ? `
-    <div class="chiffrage" id="${l.key}-chiffrage" title="${l.chiffrageSrc ? l.chiffrageSrc.replace(/"/g,'&quot;') : ''}">
-      <span class="lbl" id="${l.key}-chiffrage-lbl">Aujourd'hui</span><span class="val" id="${l.key}-chiffrage-val">${l.chiffrage}</span>
-    </div>` : "";
-  const fineToggleLabel = (l.subParams||[]).map(sp => sp.label).join(", ");
-  const fineHtml = (l.subParams && l.subParams.length) ? `
-    <button type="button" class="fine-toggle" data-target="${l.key}-fine" data-label="${fineToggleLabel.replace(/"/g,'&quot;')}">+ ${fineToggleLabel}</button>
-    <div class="fine-wrap" id="${l.key}-fine">
-      ${l.subParams.map(sp => `
-        <div class="fine-field">
-          <div class="row" style="margin-bottom:2px;"><label style="font-size:0.82rem; font-weight:600;">${sp.label}</label></div>
-          <p class="scope-mini">${sp.scope}</p>
-          ${sp.chiffrage ? `<div class="chiffrage" style="margin-bottom:8px;" title="${sp.chiffrageSrc?sp.chiffrageSrc.replace(/"/g,'&quot;'):''}"><span class="lbl">Repère</span><span class="val">${sp.chiffrage}</span></div>` : ""}
-          ${controlHtml(sp)}
-        </div>`).join("")}
-      <div class="impact-live" id="${l.key}-fine-impact" style="border-top:1px solid var(--border); margin-top:2px;">
-        <span class="k">Effet combiné sur « ${l.label} »</span><span class="v flat">statu quo</span>
-      </div>
-    </div>` : "";
-  const bottomHtml = l.chiffrageMdEur == null
-    ? `<div class="impact-live" id="${l.key}-impact"><span class="k">Avec ce réglage</span><span class="v flat">statu quo</span></div>`
-    : "";
-  return `
-    <div class="card${advanced?" advanced":""}">
-      <div class="head">
-        <h3>${l.label}</h3>
-        <div class="badges">${badges.join("")}</div>
-      </div>
-      <p class="scope">${l.scope}</p>
-      ${chiffrageHtml}
-      ${controlHtml(l)}
-      ${fineHtml}
-      ${bottomHtml}
-    </div>`;
-}
-
-function render(){
-  document.getElementById("cards-principaux").innerHTML = LEVERS_PRINCIPAUX.map(l => fixedCardHtml(l, false)).join("");
-  document.getElementById("cards-avances").innerHTML = LEVERS_AVANCES.map(l => fixedCardHtml(l, true)).join("");
-  ALL_LEVERS.forEach(l => {
-    const el = document.getElementById(l.key);
-    el.addEventListener(l.bool ? "change" : "input", () => {
-      state[l.key] = l.bool ? (el.checked ? 1 : 0) : parseFloat(el.value);
-      if (!l.bool) document.getElementById(l.key+"-val").textContent = fmtValue(l, state[l.key]);
-      updatePctVar(el, l);
-      scheduleSimulate();
-    });
-    if (!l.bool) updatePctVar(el, l);
-  });
-  document.querySelectorAll(".fine-toggle").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const wrap = document.getElementById(btn.dataset.target);
-      const open = wrap.classList.toggle("open");
-      btn.textContent = (open ? "– " : "+ ") + btn.dataset.label;
-    });
-  });
-}
-function updatePctVar(el, l){
-  const pct = ((state[l.key]-l.min)/(l.max-l.min))*100;
-  el.style.setProperty("--pct", pct+"%");
-}
-
-let simTimer = null;
-function scheduleSimulate(){
-  clearTimeout(simTimer);
-  simTimer = setTimeout(runSimulate, 180);
+  return (v >= 0 ? "+" : "") + v.toFixed(1) + " Md€";
 }
 
 async function callSimulate(mesures){
@@ -400,96 +300,112 @@ async function callSimulate(mesures){
   return res.json();
 }
 
-function lastRow(results){ return results[results.length-1]; }
-
-const COMPARE_METRICS = [
-  {k:"Déficit / PIB", field:"Déficit/PIB %", higherIsBetter:true},
-  {k:"Dette / PIB", field:"Dette/PIB %", higherIsBetter:false},
-  {k:"Chômage", field:"Chômage %", higherIsBetter:false},
-];
-
-function renderCompareBar(row, baseline){
-  const root = document.getElementById("compare-row");
-  root.innerHTML = COMPARE_METRICS.map(m => {
-    const baseVal = baseline ? baseline[m.field] : null;
-    const curVal = row ? row[m.field] : null;
-    let deltaHtml = "";
-    if (baseVal != null && curVal != null){
-      const d = curVal - baseVal;
-      const cls = Math.abs(d) < 0.05 ? "flat" : ((d>0) === m.higherIsBetter ? "good" : "bad");
-      deltaHtml = `<span class="d ${cls}">${(d>=0?"+":"")+d.toFixed(1)} pts</span>`;
-    }
-    const year = row ? row["Année"] : (baseline ? baseline["Année"] : "");
-    return `<div class="kpi-tile">
-      <div class="k">${m.k} ${year}</div>
-      <div class="etat-line">État : ${baseVal!=null ? baseVal.toFixed(2)+"%" : "—"}</div>
-      <div class="scenario-line"><span class="v">${curVal!=null ? curVal.toFixed(2)+"%" : "—"}</span>${deltaHtml}</div>
-    </div>`;
-  }).join("");
-}
-
 function setApiError(broken){
-  document.getElementById("api-error-banner").style.display = broken ? "block" : "none";
+  const el = document.getElementById("api-error-banner");
+  if (el) el.style.display = broken ? "block" : "none";
 }
+
+// État : chaque levier PRINCIPAL et chaque mesure FOLDED (indépendante) a son propre
+// interrupteur actif/inactif (comme la capture de référence). Les sous-paramètres (subParams)
+// n'ont pas d'interrupteur propre : ce sont des réglages fins de la même mesure que leur parent.
+let state = {}; // key -> {on:boolean, value:number, open:boolean}
+function registerLever(l){ state[l.key] = {on:false, value:l.default, open:false}; }
+THEMES.forEach(t => t.levers.forEach(l => {
+  registerLever(l);
+  (l.subParams||[]).forEach(sp => { state[sp.key] = {value: sp.default}; });
+  (l.folded||[]).forEach(fm => registerLever(fm));
+}));
+
+function countActive(theme){
+  let total = 0, on = 0;
+  theme.levers.forEach(l => {
+    total++; if (state[l.key].on) on++;
+    (l.folded||[]).forEach(fm => { total++; if (state[fm.key].on) on++; });
+  });
+  return {on, total};
+}
+
+// Mesures qui portent leur propre bloc "avec ce réglage" dans l'UI (principales + folded).
+const ALL_TOP_LEVEL_MEASURES = THEMES.flatMap(t => t.levers).flatMap(l => [l, ...(l.folded||[])]);
+
+// Un levier/mesure ÉTEINT (interrupteur off) envoie sa valeur PAR DÉFAUT au moteur, pas la
+// valeur du curseur — c'est ce qui fait qu'une mesure désactivée n'a aucun effet, cohérent avec
+// le compteur "X/8 activé(s)". Un sous-paramètre suit l'état on/off de son levier PARENT (pas
+// d'interrupteur propre) : si le parent est éteint, le sous-paramètre repart aussi à son défaut.
+function buildMesures(){
+  const mesures = {};
+  THEMES.forEach(t => t.levers.forEach(l => {
+    const parentOn = state[l.key].on;
+    mesures[l.id] = Object.assign({}, mesures[l.id], {[l.param]: parentOn ? state[l.key].value : l.default});
+    (l.subParams||[]).forEach(sp => {
+      mesures[l.id] = Object.assign({}, mesures[l.id], {[sp.param]: parentOn ? state[sp.key].value : sp.default});
+    });
+    (l.folded||[]).forEach(fm => {
+      const fmOn = state[fm.key].on;
+      mesures[fm.id] = Object.assign({}, mesures[fm.id], {[fm.param]: fmOn ? state[fm.key].value : fm.default});
+    });
+  }));
+  return mesures;
+}
+
+function lastRow(results){ return results[results.length-1]; }
 
 async function ensureBaseline(){
   try{
-    const data = await callSimulate({});
-    baselineKpis = lastRow(data.results);
-    renderCompareBar(baselineKpis, baselineKpis);
+    await callSimulate({}); // juste pour vérifier que l'API répond ; pas de comparaison bar ici
+    baselineReady = true;
     setApiError(false);
   }catch(e){ console.error(e); setApiError(true); }
+}
+
+let simTimer = null;
+function scheduleSimulate(){
+  clearTimeout(simTimer);
+  simTimer = setTimeout(runSimulate, 180);
 }
 
 async function runSimulate(){
   try{
     const mesures = buildMesures();
     const data = await callSimulate(mesures);
-    const row = lastRow(data.results);
-    renderCompareBar(row, baselineKpis);
-    // impacts par levier (dernière année) — un seul delta par MESURE (pas par curseur),
-    // donc les sous-paramètres (subParams) n'ont pas leur propre ligne : leur effet est
-    // déjà inclus dans le delta affiché sur la carte principale.
     const impactsLastYear = data.measure_impacts ? data.measure_impacts[data.measure_impacts.length-1] : {};
-    [...LEVERS_PRINCIPAUX, ...LEVERS_AVANCES].forEach(l => {
+    ALL_TOP_LEVEL_MEASURES.forEach(l => {
+      const on = state[l.key].on;
       const imp = impactsLastYear[l.id];
       const rec = imp ? (imp.recettes||0) : 0;
-      const changed = Math.abs(rec) >= 0.05;
+      // Pas de delta affiché pour une mesure désactivée (son réglage n'est pas appliqué).
+      const changed = on && Math.abs(rec) >= 0.05;
+      const cls = rec > 0 ? "good" : "bad";
 
-      if (l.chiffrageMdEur != null){
-        // Fusion "aujourd'hui" / "avec ce réglage" dans la même ligne (demande : ne pas dupliquer).
-        const box = document.getElementById(l.key+"-chiffrage");
-        const lbl = document.getElementById(l.key+"-chiffrage-lbl");
-        const val = document.getElementById(l.key+"-chiffrage-val");
-        if (!changed){
-          box.classList.remove("changed");
-          lbl.textContent = "Aujourd'hui";
-          val.className = "val";
-          val.textContent = l.chiffrage;
-        } else {
+      // Bulle détaillée (carte dépliée) : fusionne "aujourd'hui"/"avec ce réglage" quand on a
+      // un chiffrageMdEur, sinon affiche juste le delta ("Avec ce réglage" pur).
+      const detailVal = document.querySelector(`[data-impact-val="${l.key}"]`);
+      const detailBox = document.querySelector(`[data-impact-block="${l.key}"]`);
+      if (detailVal){
+        if (!on){
+          detailVal.className = "val flat";
+          detailVal.textContent = "désactivé — aucun effet";
+        } else if (!changed){
+          detailVal.className = "val flat";
+          detailVal.textContent = "statu quo (valeur par défaut)";
+        } else if (l.chiffrageMdEur != null){
           const total = l.chiffrageMdEur + rec;
-          box.classList.add("changed");
-          lbl.textContent = "Avec ce réglage";
-          val.className = "val " + (rec > 0 ? "good" : "bad");
-          val.textContent = `${total.toFixed(1)} Md€ / an  (${rec>=0?"+":""}${rec.toFixed(1)} vs État)`;
-        }
-        // Miroir dans le panneau "+ ..." déplié, pour que l'effet reste visible sans
-        // remonter les yeux vers le haut de la carte pendant qu'on ajuste un sous-paramètre.
-        const fineBox = document.getElementById(l.key+"-fine-impact");
-        if (fineBox){
-          fineBox.innerHTML = !changed
-            ? `<span class="k">Effet combiné sur « ${l.label} »</span><span class="v flat">statu quo</span>`
-            : `<span class="k">Effet combiné sur « ${l.label} »</span><span class="v ${rec>0?"good":"bad"}">${fmtMdDelta(rec)}</span>`;
-        }
-      } else {
-        const box = document.getElementById(l.key+"-impact");
-        if (!box) return;
-        if (!changed){
-          box.innerHTML = `<span class="k">Avec ce réglage</span><span class="v flat">statu quo</span>`;
+          detailVal.className = "val " + cls;
+          detailVal.textContent = `${total.toFixed(1)} Md€ / an (${fmtMdDelta(rec)} vs État)`;
         } else {
-          const cls = rec > 0 ? "good" : "bad";
-          const word = rec > 0 ? "de recettes en plus" : "de recettes en moins";
-          box.innerHTML = `<span class="k">Avec ce réglage</span><span class="v ${cls}">${fmtMdDelta(rec)} ${word}</span>`;
+          detailVal.className = "val " + cls;
+          detailVal.textContent = `${fmtMdDelta(rec)} ${rec>0?"de recettes en plus":"de recettes en moins"}`;
+        }
+        if (detailBox) detailBox.classList.toggle("changed", changed);
+      }
+      // Puce compacte (carte repliée) : même info en version courte.
+      const chip = document.querySelector(`[data-meta-impact="${l.key}"]`);
+      if (chip){
+        chip.hidden = !on;
+        if (on){
+          chip.textContent = !changed ? "· avec ce réglage : statu quo" : `· avec ce réglage : ${fmtMdDelta(rec)}`;
+          chip.classList.toggle("good", changed && rec > 0);
+          chip.classList.toggle("bad", changed && rec < 0);
         }
       }
     });
@@ -497,13 +413,186 @@ async function runSimulate(){
   }catch(e){ console.error(e); setApiError(true); }
 }
 
-document.getElementById("adv-toggle").addEventListener("click", () => {
-  const wrap = document.getElementById("advanced-wrap");
-  const open = wrap.classList.toggle("open");
-  document.getElementById("adv-toggle").textContent = open
-    ? "Masquer les réglages avancés ▲"
-    : "Afficher les réglages avancés (6 leviers + paramètres fins) ▾";
-});
+function sliderHtml(item, extraClass){
+  const st = state[item.key];
+  if (item.bool){
+    return `
+      <div class="lever-field">
+        <label class="switch sm"><input type="checkbox" data-bool="${item.key}" ${st.value ? "checked" : ""}><span class="tgl"></span></label>
+      </div>`;
+  }
+  const pct = ((st.value - item.min) / (item.max - item.min)) * 100;
+  const defPct = ((item.default - item.min) / (item.max - item.min)) * 100;
+  return `
+    <div class="lever-field">
+      <div class="row"><span>Réglage</span><span class="cur" data-val-for="${item.key}">${fmtValue(item, st.value)}</span></div>
+      <div class="slider-track-wrap">
+        <input type="range" data-range="${item.key}" min="${item.min}" max="${item.max}" step="${item.step}"
+               value="${st.value}" style="--pct:${pct}%" ${('on' in st) && !st.on ? "disabled" : ""}>
+        <span class="default-tick" style="left:${defPct}%" title="Valeur du budget de l'État (référence) : ${fmtValue(item, item.default)}"></span>
+      </div>
+    </div>`;
+}
+
+function nestedHtml(item, kind){
+  // kind: "sub" (sous-paramètre, pas d'interrupteur) ou "folded" (mesure indépendante, son propre interrupteur)
+  const isFolded = kind === "folded";
+  const st = state[item.key];
+  const switchHtml = isFolded
+    ? `<label class="switch sm" onclick="event.stopPropagation()"><input type="checkbox" data-togglenested="${item.key}" ${st.on ? "checked" : ""}><span class="tgl"></span></label>`
+    : "";
+  return `
+    <div class="nested ${kind}" data-nested="${item.key}">
+      <div class="nested-head">
+        <span class="lbl" data-opennested="${item.key}"><span class="chev">▸</span>${item.label}</span>
+        ${switchHtml}
+      </div>
+      ${isFolded ? `
+      <span class="lever-meta">
+        <span>${item.chiffrage||""}</span>
+        <span class="tag indep">indépendant</span>${item.decile ? '<span class="tag decile">décile</span>' : ''}
+        <span class="impact-chip" data-meta-impact="${item.key}" ${!st.on ? "hidden" : ""}>· avec ce réglage : à calculer</span>
+      </span>` : ""}
+      <p class="nested-scope">${item.scope}</p>
+      ${item.chiffrage ? `<div class="lever-chiffrage" data-chiffrage-block="${item.key}"><span>Aujourd'hui</span><span class="val">${item.chiffrage}</span></div>` : ""}
+      ${item.chiffrage ? impactPlaceholderHtml(item.key) : ""}
+      ${sliderHtml(item)}
+    </div>`;
+}
+
+function impactPlaceholderHtml(key){
+  // Dans cette maquette (pas branchée au moteur), affiche un repère provisoire à la place du
+  // vrai delta Md€ / impact ménage calculé en direct dans la maquette actuelle. Même
+  // emplacement (juste après "Aujourd'hui", avant le curseur) pour que la disposition reste
+  // comparable une fois le vrai calcul rebranché.
+  return `<div class="lever-chiffrage impact-placeholder" data-impact-block="${key}">
+    <span>Avec ce réglage</span>
+    <span class="val placeholder" data-impact-val="${key}">à calculer (maquette non connectée au moteur)</span>
+  </div>`;
+}
+
+function leverHtml(l){
+  const st = state[l.key];
+  const badges = [];
+  if (l.decile) badges.push(`<span class="tag decile">décile</span>`);
+  const nestedSubs = (l.subParams||[]).map(sp => nestedHtml(sp, "sub")).join("");
+  const nestedFolded = (l.folded||[]).map(fm => nestedHtml(fm, "folded")).join("");
+  return `
+    <div class="lever" data-lever="${l.key}">
+      <div class="lever-row">
+        <div class="lever-main" data-open="${l.key}">
+          <span class="lever-label"><span class="chev">▸</span>${l.label}</span>
+          <span class="lever-meta">
+            <span data-meta-chiffrage="${l.key}">${l.chiffrage ? l.chiffrage : ""}</span>
+            ${badges.join("")}
+            <span class="impact-chip" data-meta-impact="${l.key}" ${!st.on ? "hidden" : ""}>· avec ce réglage : à calculer</span>
+          </span>
+        </div>
+        <label class="switch" onclick="event.stopPropagation()">
+          <input type="checkbox" data-toggle="${l.key}" ${st.on ? "checked" : ""}><span class="tgl"></span>
+        </label>
+      </div>
+      <div class="lever-detail">
+        <p class="lever-scope">${l.scope}</p>
+        ${l.chiffrage ? `<div class="lever-chiffrage"><span>Aujourd'hui</span><span class="val">${l.chiffrage}</span></div>` : ""}
+        ${l.chiffrage ? impactPlaceholderHtml(l.key) : ""}
+        ${sliderHtml(l)}
+        ${nestedSubs ? `<div class="nested-group"><div class="nested-group-title">Réglages fins (même mesure)</div>${nestedSubs}</div>` : ""}
+        ${nestedFolded ? `<div class="nested-group"><div class="nested-group-title">Mesures indépendantes rangées ici</div>${nestedFolded}</div>` : ""}
+      </div>
+    </div>`;
+}
+
+function render(){
+  document.getElementById("themes").innerHTML = THEMES.map(t => {
+    const {on, total} = countActive(t);
+    return `
+      <section class="theme" data-theme="${t.key}">
+        <div class="theme-head">
+          <h2>${t.label}</h2>
+          <span class="theme-count" data-count="${t.key}"><b>${on}</b>/${total} activé(s)</span>
+        </div>
+        <p class="theme-sub">${t.sub}</p>
+        <div class="theme-bar"><div class="fill" data-bar="${t.key}" style="width:${total ? (on/total*100) : 0}%"></div></div>
+        <div class="lever-grid">${t.levers.map(leverHtml).join("")}</div>
+      </section>`;
+  }).join("");
+  wire();
+}
+
+function refreshCounts(){
+  THEMES.forEach(t => {
+    const {on, total} = countActive(t);
+    document.querySelector(`[data-count="${t.key}"]`).innerHTML = `<b>${on}</b>/${total} activé(s)`;
+    document.querySelector(`[data-bar="${t.key}"]`).style.width = (total ? (on/total*100) : 0) + "%";
+  });
+}
+
+function wire(){
+  // Déplier/replier un levier principal
+  document.querySelectorAll("[data-open]").forEach(el => {
+    el.addEventListener("click", () => {
+      const key = el.dataset.open;
+      const card = document.querySelector(`[data-lever="${key}"]`);
+      card.classList.toggle("open");
+    });
+  });
+  // Déplier/replier une mesure imbriquée (sous-paramètre ou indépendante)
+  document.querySelectorAll("[data-opennested]").forEach(el => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const key = el.dataset.opennested;
+      document.querySelector(`[data-nested="${key}"]`).classList.toggle("open");
+    });
+  });
+  // Interrupteur d'un levier principal / mesure indépendante
+  document.querySelectorAll("[data-toggle], [data-togglenested]").forEach(el => {
+    el.addEventListener("change", () => {
+      const key = el.dataset.toggle || el.dataset.togglenested;
+      state[key].on = el.checked;
+      const card = document.querySelector(`[data-lever="${key}"]`) || document.querySelector(`[data-nested="${key}"]`);
+      card.classList.toggle("active", el.checked);
+      const range = document.querySelector(`input[type=range][data-range="${key}"]`);
+      if (range) range.disabled = !el.checked;
+      // à l'activation, on déplie pour régler tout de suite ; à la désactivation, on replie —
+      // mais une fois réglée, la carte peut être repliée manuellement (chevron) sans perdre le
+      // réglage : la coche verte ci-dessous reste visible pour le rappeler.
+      if (el.checked) card.classList.add("open"); else card.classList.remove("open");
+      const chip = document.querySelector(`[data-meta-impact="${key}"]`);
+      if (chip) chip.hidden = !el.checked;
+      refreshCounts();
+      if (baselineReady) scheduleSimulate(); else runSimulate();
+    });
+  });
+  // Curseurs
+  document.querySelectorAll("input[type=range][data-range]").forEach(el => {
+    el.addEventListener("input", () => {
+      const key = el.dataset.range;
+      const val = parseFloat(el.value);
+      state[key].value = val;
+      const item = findItem(key);
+      document.querySelector(`[data-val-for="${key}"]`).textContent = fmtValue(item, val);
+      const pct = ((val - item.min) / (item.max - item.min)) * 100;
+      el.style.setProperty("--pct", pct + "%");
+      if (baselineReady) scheduleSimulate(); else runSimulate();
+    });
+  });
+  document.querySelectorAll("input[type=checkbox][data-bool]").forEach(el => {
+    el.addEventListener("change", () => {
+      state[el.dataset.bool].value = el.checked ? 1 : 0;
+      if (baselineReady) scheduleSimulate(); else runSimulate();
+    });
+  });
+}
+
+function findItem(key){
+  for (const t of THEMES) for (const l of t.levers){
+    if (l.key === key) return l;
+    for (const sp of (l.subParams||[])) if (sp.key === key) return sp;
+    for (const fm of (l.folded||[])) if (fm.key === key) return fm;
+  }
+  return null;
+}
 
 render();
 ensureBaseline().then(runSimulate);

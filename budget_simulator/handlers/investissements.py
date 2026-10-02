@@ -32,6 +32,9 @@ from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
     CARBONE_PRIX_REFERENCE_EUR_T,
+    CIR_COEFF_COMPETITIVITE_PAR_MD_RD,
+    CIR_LEVIER_RD_PRIVEE,
+    CIR_MONTANT_BASE_MD,
     GINI_RENOVATION_PAR_MD_EUR,
     GINI_TAXE_CARBONE_PAR_EUR_TONNE,
     POLICY_START_YEAR,
@@ -181,10 +184,68 @@ class InvestissementsMixin(_MixinBase):
 
         delta_spending = investment + renovation
 
-        # Recettes taxe carbone : ~6 Md€ pour 100€/tCO2, proportionnel
-        # Référence : CARBONE_PRIX_REFERENCE_EUR_T = statu quo (composante
-        # carbone française gelée depuis 2018), donc delta = (taxe - réf) * 0.06
-        delta_revenue = (carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) * 0.06
+        # ===== RECETTES TAXE CARBONE (RECALIBRAGE 2026-09) =====
+        # ANCIENNE CALIBRATION (jusqu'à ce correctif) : delta_revenue = (carbon_tax - réf) * 0.06,
+        # soit ~6 Md€ pour +100 €/t — coefficient SANS SOURCE identifiée dans l'historique du
+        # fichier, et significativement sous-évalué par rapport à l'assiette réelle.
+        #
+        # RECALIBRAGE, sourcé FIPECO "Les taxes sur les carburants" (fiche IV.18, 06.07.2026,
+        # fournie par l'utilisateur) :
+        # - Rendement 2018 de la seule composante carbone = 9,1 Md€ au taux de référence
+        #   CARBONE_PRIX_REFERENCE_EUR_T (Wikipédia, citant l'OCDE) => assiette implicite 2018
+        #   = 9,1 * 1000 / CARBONE_PRIX_REFERENCE_EUR_T ≈ 204,0 MtCO2.
+        # - La composante carbone est GELÉE à ce niveau depuis 2018 (hausse programmée jusqu'à
+        #   86,20 €/t en 2022 annulée après les Gilets Jaunes, LFI 2019) : à tarif inchangé,
+        #   l'évolution du rendement TOTAL de l'accise sur les carburants en comptabilité
+        #   nationale (même fiche FIPECO : 31,8 Md€ en 2019 → 30,5 Md€ en 2025, soit -4,1 %)
+        #   sert de proxy fiable de l'érosion de l'assiette PHYSIQUE (volumes, électrification du
+        #   parc) sur la période => assiette actuelle ≈ 204,0 × (30,5/31,8) ≈ 195,7 MtCO2.
+        #   NB : ce proxy suppose implicitement que l'assiette carbone (carburants routiers)
+        #   s'érode au même rythme que l'accise totale (qui inclut aussi le fioul domestique
+        #   etc.) — approximation raisonnable faute de mieux, pas une identité exacte.
+        # - Coefficient mécanique (avant effet-volume comportemental) : 195,7 / 1000 ≈ 0,1957
+        #   Md€ par €/tCO2, soit ~19,6 Md€ pour +100 €/t (vs 6 Md€ précédemment, écart ×3,3).
+        #   Calculé ci-dessous à partir des chiffres sources bruts plutôt qu'en dur, pour que
+        #   la chaîne de calcul reste auditable (rendement 2018 → assiette 2018 → assiette
+        #   actuelle → coefficient marginal) sans littéral final isolé.
+        # - Effet-volume : une hausse de la composante carbone renchérit le prix à la pompe.
+        #   Composante actuelle ≈ 11,0 c€/l en moyenne gazole/essence au taux de référence
+        #   (gazole 11,8 / essence 10,2 c€/l, FIPECO), prix pompe moyen ≈ 1,868 €/l (moyenne
+        #   gazole 1,863 / SP95 1,873, FIPECO 03/07/2026). Élasticité-prix long terme de la
+        #   consommation de carburant = 0,6 à 0,7 (Économie et Statistique 2011, citée par
+        #   FIPECO) → on retient le milieu, 0,65. Cet effet réduit modérément l'assiette (et
+        #   donc le rendement marginal net) à mesure que le curseur s'éloigne de la référence :
+        #   ex. +50 €/t ≈ +15 % de prix pompe ≈ -10 % de conso.
+        RENDEMENT_COMPOSANTE_CARBONE_2018_MD = 9.1     # Md€, OCDE via Wikipédia
+        TICPE_COMPTA_NATIONALE_2019_MD = 31.8          # Md€, FIPECO fiche IV.18 (07/2026)
+        TICPE_COMPTA_NATIONALE_2025_MD = 30.5           # Md€, FIPECO fiche IV.18 (07/2026)
+        assiette_2018_mt = (
+            RENDEMENT_COMPOSANTE_CARBONE_2018_MD * 1000 / CARBONE_PRIX_REFERENCE_EUR_T
+        )  # ≈ 204,0 MtCO2
+        assiette_actuelle_mt = assiette_2018_mt * (
+            TICPE_COMPTA_NATIONALE_2025_MD / TICPE_COMPTA_NATIONALE_2019_MD
+        )  # ≈ 195,7 MtCO2
+        COEFF_CARBONE_MECANIQUE_MD_PAR_EUR_T = assiette_actuelle_mt / 1000  # ≈ 0,1957 Md€/€ de tCO2
+        PRIX_POMPE_MOYEN_REF = 1.868       # €/l, moyenne gazole/SP95, FIPECO 03/07/2026
+        COMPOSANTE_REF_C_PAR_L = 11.0      # c€/l, moyenne gazole/essence au taux de référence, FIPECO
+        ELASTICITE_PRIX_CARBURANT_LT = 0.65  # FIPECO, citant Éco. & Stat. 2011 (fourchette 0,6-0,7)
+
+        composante_nouvelle_c_par_l = (
+            COMPOSANTE_REF_C_PAR_L * (carbon_tax / CARBONE_PRIX_REFERENCE_EUR_T)
+            if CARBONE_PRIX_REFERENCE_EUR_T else 0.0
+        )
+        pct_prix_carburant = (
+            (composante_nouvelle_c_par_l - COMPOSANTE_REF_C_PAR_L) / 100
+        ) / PRIX_POMPE_MOYEN_REF
+        # Borné [0.5, 1.5] : même convention que les autres facteurs comportementaux du moteur
+        # (cf. impot_revenu / facteur_comportemental) — évite un emballement hors plage usuelle.
+        facteur_volume_carbone = max(0.5, min(1.5, 1 - ELASTICITE_PRIX_CARBURANT_LT * pct_prix_carburant))
+
+        delta_revenue = (
+            (carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T)
+            * COEFF_CARBONE_MECANIQUE_MD_PAR_EUR_T
+            * facteur_volume_carbone
+        )
         if year >= 2027:
             # [FIX] Retours fiscaux de la transition — 5-8% avec phase-in.
             # L'ancien taux de 20% impliquait 16 Md€/an de retour pour 80 Md€ de dépense,
@@ -385,3 +446,74 @@ class InvestissementsMixin(_MixinBase):
             f"Phasing {phasing_rd*100:.0f}%, Compét {competitivite:+.4f}")
 
         return delta_spending, 0, impacts
+
+    def _apply_credit_impot_recherche(self, measure: Dict, params: Dict, year: int,
+                                       gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
+        """Crédit d'impôt recherche (CIR) : crédit d'impôt sur les dépenses de R&D
+        PRIVÉE des entreprises (30% des dépenses jusqu'à 100 M€, 5% au-delà).
+
+        DISTINCT de `_apply_recherche_publique` ci-dessus, qui modélise le budget
+        de recherche PUBLIQUE et le précise déjà explicitement dans son propre
+        docstring ("Actuel ~10 Md€ (hors CIR 7 Md€)") : les deux mesures ont des
+        assiettes disjointes (budget public de recherche vs crédit d'impôt versé
+        à des entreprises privées) et ne se recoupent pas — aucun double comptage.
+
+        COÛT BUDGÉTAIRE : 6,6 Md€ (DGFiP "Voies et moyens" tome II, créance 2025
+        anticipée, cité par Sénat PLF 2025 "Remboursements et dégrèvements").
+        `montant`=6.6 (défaut) = régime actuel ; une baisse = rabot/suppression
+        partielle du crédit (+recettes immédiates pour l'État), une hausse =
+        élargissement du dispositif.
+
+        EFFET DE LEVIER COMPÉTITIVITÉ : France Stratégie/CNEPI (2021, rapport
+        SEURECO) : 1€ de CIR -> 1,2 à 1,5€ de R&D privée supplémentaire (1,35
+        retenu, CIR_LEVIER_RD_PRIVEE, voir constants.py). Phasing progressif sur
+        5 ans comme `recherche_publique` (R&D = investissement de long terme),
+        même coefficient par Md€ de R&D (0.0015, élasticité OCDE 0.17) appliqué
+        ici au delta de R&D PRIVÉE induit par le changement de CIR (voir
+        constants.py pour l'articulation avec le différentiel de levier
+        public/privé, DÉJÀ capturé par le ratio 1,35 vs 1,70 et non recorrigé ici).
+
+        GINI : ZÉRO ASSUMÉ, même argumentation que `_apply_recherche_publique`
+        ci-dessus — aucune étude, française ou internationale, n'estime
+        l'incidence distributive MÉNAGE d'un crédit d'impôt versé à des
+        entreprises : ce n'est pas la nature de l'instrument (bénéficiaire =
+        personne morale, pas foyer fiscal), pas un trou de la collecte.
+
+        POUVOIR D'ACHAT : neutre (0). Contrairement à `recherche_publique`, qui
+        modélise un recrutement PUBLIC direct de chercheurs (MESR/SIES, masse
+        salariale chiffrable), le CIR ne transite pas par un canal emploi
+        chiffré et sourcé de façon comparable : laissé à 0 plutôt qu'une
+        extrapolation non sourcée (même principe de prudence)."""
+        montant = params.get('montant', CIR_MONTANT_BASE_MD)
+        montant_base = CIR_MONTANT_BASE_MD
+        delta_fiscal = montant_base - montant  # Rabot/suppression du crédit = +recettes
+
+        if abs(delta_fiscal) < 1e-9:
+            return 0, 0, {}
+
+        delta_revenue = delta_fiscal
+
+        years_elapsed = max(0, year - POLICY_START_YEAR)
+        # Phasing identique à `recherche_publique` : 20% -> 100% sur 5 ans
+        # (R&D = investissement de long terme, effet durable).
+        phasing_cir = min(1.0, 0.2 + years_elapsed * 0.2)
+
+        # Delta de R&D PRIVÉE induit par le changement de CIR (effet de levier) :
+        # une baisse du crédit (delta_fiscal > 0) réduit la R&D privée incitée ;
+        # une hausse (delta_fiscal < 0) l'augmente.
+        delta_rd_privee = -delta_fiscal * CIR_LEVIER_RD_PRIVEE
+        competitivite = delta_rd_privee * CIR_COEFF_COMPETITIVITE_PAR_MD_RD * phasing_cir
+
+        impacts = {
+            'recettes': delta_revenue,
+            'gini': 0.0,
+            'pouvoir_achat': 0.0,
+            'competitivite': competitivite,
+        }
+
+        _log_debug(self.debug_logs,
+            f"Y{year}: CIR - montant {montant:.1f} Md€ (Δfiscal {delta_fiscal:+.1f}), "
+            f"ΔR&D privée {delta_rd_privee:+.1f} Md€, Phasing {phasing_cir*100:.0f}%, "
+            f"Compét {competitivite:+.4f}")
+
+        return 0, delta_revenue, impacts

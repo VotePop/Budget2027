@@ -25,7 +25,15 @@ d'instance de ``BudgetSimulatorV45``.
 import logging
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import POLICY_START_YEAR
+from ..constants import (
+    POLICY_START_YEAR,
+    SMIC_INDEXATION_ELASTICITE_CHOMAGE,
+    SMIC_INDEXATION_ELASTICITE_COMPETITIVITE,
+    SMIC_INDEXATION_ELASTICITE_COTISATIONS,
+    SMIC_INDEXATION_ELASTICITE_PA,
+    SMIC_INDEXATION_PLATEAU_ANS,
+    SMIC_INDEXATION_SALARIES_PRIVES_MILLIONS,
+)
 from .._logging import _log_debug
 from ._phasing import _one_time_level, _resolve_intensite_or_legacy, _year_phasing
 from ._types import ImpactsDict
@@ -48,74 +56,118 @@ class AdditionnelsMixin(_MixinBase):
 
     def _apply_smic(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """SMIC (actuel 1800€ brut). NFP: 1600€ net (+14.4%). 3.2M salariés concernés. Effets NIVEAU one-time.
-        Sources: OFCE 2024, DARES 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027."""
+        Sources: OFCE 2024, DARES 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027.
+
+        NOUVEAU (fork VotePop 2026-10) : canal `indexation` additif, cf
+        constants.py § Nouveaux leviers sociaux — dérive CUMULATIVE par
+        rapport à la trajectoire légale (1.0 = statu quo), réutilisant par
+        ANALOGIE les élasticités de ce canal `montant_brut` (ESTIMATION, pas
+        une élasticité dédiée). Anti double-comptage : ne touche pas les
+        prestations indexées sur le SMIC (RSA/prime d'activité), déjà
+        couvertes par `prestations_indexation`/`asu`."""
         smic_brut = params.get('montant_brut', 1800)  # Actuel 2024 : ~1800€ brut
         smic_actuel = 1800  # Baseline 2025
+        indexation = params.get('indexation', 1.0)
 
-        if smic_brut == smic_actuel:
+        if smic_brut == smic_actuel and indexation == 1.0:
             return 0, 0, {}
 
         # Année de mise en œuvre
         years_elapsed = year - POLICY_START_YEAR
 
-        # ===== CALCUL IMPACTS =====
-        delta_brut = smic_brut - smic_actuel
-        hausse_pct = delta_brut / smic_actuel
+        delta_spending = 0.0
+        delta_revenue = 0.0
+        impact_pa = 0.0
+        impact_competitivite = 0.0
+        impact_gini = 0.0
+        impact_chomage = 0.0
+        delta_fp = 0.0
+        delta_aides = 0.0
+        delta_cotisations = 0.0
 
-        # 1. DÉPENSES FONCTION PUBLIQUE
-        # 15% des agents FP cat. C concernés (masse salariale ~50 Md€)
-        # Correction double-comptage : si le point d'indice augmente aussi,
-        # la hausse FP est déjà partiellement couverte. Surcoût SMIC net = max(0, hausse - PI).
-        masse_salariale_fp_concernee = 50  # Md€
-        hausse_pi_pct = 0.0
-        if 'fonction_publique' in self.mesures:
-            hausse_pi_pct = self.mesures['fonction_publique'].get('point_indice', 0) / 100
-        delta_fp = masse_salariale_fp_concernee * max(0, hausse_pct - hausse_pi_pct)
+        # ===== CANAL NIVEAU (montant_brut) — INCHANGÉ =====
+        if smic_brut != smic_actuel:
+            delta_brut = smic_brut - smic_actuel
+            hausse_pct = delta_brut / smic_actuel
 
-        # 2. DÉPENSES AIDES SOCIALES (indexées sur SMIC : RSA, prime activité)
-        # RSA = 0.5 SMIC, Prime activité indexée
-        delta_aides = 12 * hausse_pct  # RSA + prime activité ~12 Md€
+            # 1. DÉPENSES FONCTION PUBLIQUE
+            # 15% des agents FP cat. C concernés (masse salariale ~50 Md€)
+            # Correction double-comptage : si le point d'indice augmente aussi,
+            # la hausse FP est déjà partiellement couverte. Surcoût SMIC net = max(0, hausse - PI).
+            masse_salariale_fp_concernee = 50  # Md€
+            hausse_pi_pct = 0.0
+            if 'fonction_publique' in self.mesures:
+                hausse_pi_pct = self.mesures['fonction_publique'].get('point_indice', 0) / 100
+            delta_fp = masse_salariale_fp_concernee * max(0, hausse_pct - hausse_pi_pct)
 
-        # 3. RECETTES COTISATIONS SOCIALES
-        # Hausse cotisations sur masse salariale privée
-        # Salariés privés SMIC : ~2.7M × 12 mois × hausse × taux cotisations (45%)
-        # LIMITATION ASSUMÉE : pas d'effet de diffusion 20-30% au-dessus du SMIC
-        # (OFCE Plane 2014, IPP Bozio 2018). Sous-estime probablement coûts/recettes
-        # de ~25-30% pour des hausses SMIC importantes. Choix de simplification pédagogique.
-        salaries_prives_smic = 2.7  # millions
-        delta_cotisations = salaries_prives_smic * 12 * delta_brut * 0.45 / 1000  # Md€
+            # 2. DÉPENSES AIDES SOCIALES (indexées sur SMIC : RSA, prime activité)
+            # RSA = 0.5 SMIC, Prime activité indexée
+            delta_aides = 12 * hausse_pct  # RSA + prime activité ~12 Md€
 
-        # 4. TOTAL
-        delta_spending = delta_fp + delta_aides
-        delta_revenue = delta_cotisations
+            # 3. RECETTES COTISATIONS SOCIALES
+            # Hausse cotisations sur masse salariale privée
+            # Salariés privés SMIC : ~2.7M × 12 mois × hausse × taux cotisations (45%)
+            # LIMITATION ASSUMÉE : pas d'effet de diffusion 20-30% au-dessus du SMIC
+            # (OFCE Plane 2014, IPP Bozio 2018). Sous-estime probablement coûts/recettes
+            # de ~25-30% pour des hausses SMIC importantes. Choix de simplification pédagogique.
+            salaries_prives_smic = 2.7  # millions
+            delta_cotisations = salaries_prives_smic * 12 * delta_brut * 0.45 / 1000  # Md€
 
-        # ===== IMPACTS MACROÉCONOMIQUES =====
-        # Pouvoir achat : Effet NIVEAU one-time appliqué l'année de mise en œuvre.
-        # Élasticité 0.06 : +10% SMIC → +0.6% PA agrégé (OFCE Plane 2014, IPP Bozio 2018,
-        # 15% pop active directe + diffusion partielle 20-30% au-dessus du SMIC).
-        # Cohérent avec règle METHODOLOGIE "+100€ SMIC ≈ +0.5% PA" (≈ +7% hausse → élasticité ~0.07).
-        impact_pa = _one_time_level(years_elapsed, hausse_pct * 0.06)
+            delta_spending += delta_fp + delta_aides
+            delta_revenue += delta_cotisations
 
-        # Compétitivité : -0.25% pour +10% SMIC (coût travail entreprises)
-        # Impact permanent sur coût travail, mais appliqué une fois (structure de coûts)
-        # Élasticité : 0.025 (DG Trésor 2023 - effet modéré car SMIC = 15% masse salariale)
-        impact_competitivite = _one_time_level(years_elapsed, -hausse_pct * 0.025)
+            # Pouvoir achat : Effet NIVEAU one-time appliqué l'année de mise en œuvre.
+            # Élasticité 0.06 : +10% SMIC → +0.6% PA agrégé (OFCE Plane 2014, IPP Bozio 2018,
+            # 15% pop active directe + diffusion partielle 20-30% au-dessus du SMIC).
+            # Cohérent avec règle METHODOLOGIE "+100€ SMIC ≈ +0.5% PA" (≈ +7% hausse → élasticité ~0.07).
+            impact_pa += _one_time_level(years_elapsed, hausse_pct * 0.06)
 
-        # Gini : -0.003 pour +10% SMIC (redistribution vers bas salaires)
-        # Impact permanent sur distribution, mais appliqué une fois (structure revenus)
-        # Élasticité : 0.03 (INSEE 2024 - effet concentré sur D1-D2)
-        impact_gini = _one_time_level(years_elapsed, -hausse_pct * 0.03)
+            # Compétitivité : -0.25% pour +10% SMIC (coût travail entreprises)
+            # Impact permanent sur coût travail, mais appliqué une fois (structure de coûts)
+            # Élasticité : 0.025 (DG Trésor 2023 - effet modéré car SMIC = 15% masse salariale)
+            impact_competitivite += _one_time_level(years_elapsed, -hausse_pct * 0.025)
 
-        # Chômage : Hausse SMIC → Hausse coût travail → Destruction emplois non qualifiés (ONE-TIME)
-        # IMPORTANT : Impact NÉGATIF sur emploi (hausse SMIC augmente chômage)
-        # Sources: Kramarz & Philippon (2001), Abowd et al. (2000)
-        # Élasticité emploi/SMIC = -0.10 à -0.30 pour France (consensus)
-        # Mécanisme: Coût travail ↑ → Substitution capital/travail → Destruction emplois bas qualifications
-        # Formule conservative: +0.025 pt chômage par % de hausse SMIC (2.5 pt par 100% hausse)
-        # Exemple: Hausse 10% (hausse_pct=0.10) → +0.10 * 0.025 = +0.0025 = +0.25 pt chômage
-        #          Hausse 5% (hausse_pct=0.05) → +0.05 * 0.025 = +0.00125 = +0.125 pt chômage
-        # POSITIF car hausse SMIC augmente le chômage (one-time)
-        impact_chomage = _one_time_level(years_elapsed, hausse_pct * 0.025)
+            # Gini : -0.003 pour +10% SMIC (redistribution vers bas salaires)
+            # Impact permanent sur distribution, mais appliqué une fois (structure revenus)
+            # Élasticité : 0.03 (INSEE 2024 - effet concentré sur D1-D2)
+            impact_gini += _one_time_level(years_elapsed, -hausse_pct * 0.03)
+
+            # Chômage : Hausse SMIC → Hausse coût travail → Destruction emplois non qualifiés (ONE-TIME)
+            # IMPORTANT : Impact NÉGATIF sur emploi (hausse SMIC augmente chômage)
+            # Sources: Kramarz & Philippon (2001), Abowd et al. (2000)
+            # Élasticité emploi/SMIC = -0.10 à -0.30 pour France (consensus)
+            # Formule conservative: +0.025 pt chômage par % de hausse SMIC (2.5 pt par 100% hausse)
+            impact_chomage += _one_time_level(years_elapsed, hausse_pct * 0.025)
+
+        # ===== CANAL INDEXATION (NOUVEAU, additif) =====
+        # indexation=1.0 = statu quo (SMIC suit sa trajectoire légale, déjà
+        # dans la baseline). Écart cumulatif composé, même mécanique que
+        # `prestations_indexation` : la perte (ou le gain) de valeur réelle
+        # du SMIC par rapport à l'inflation s'accumule, plafonnée à
+        # SMIC_INDEXATION_PLATEAU_ANS (renouvellement structurel des grilles
+        # salariales).
+        if indexation != 1.0 and inflation > 0 and year >= POLICY_START_YEAR:
+            years_idx = year - POLICY_START_YEAR
+            years_effect = min(years_idx, SMIC_INDEXATION_PLATEAU_ANS)
+            delta_indexation = 1.0 - indexation  # >0 si sous-indexation
+            # hausse_pct_idx < 0 si sous-indexation (SMIC réel s'érode vs la
+            # trajectoire légale), > 0 si sur-indexation — même convention de
+            # signe que `hausse_pct` du canal niveau ci-dessus.
+            hausse_pct_idx = -(1 - (1 - delta_indexation * inflation) ** years_effect) if years_effect > 0 else 0.0
+
+            delta_cotisations_idx = (
+                SMIC_INDEXATION_SALARIES_PRIVES_MILLIONS * 12 * smic_actuel
+                * hausse_pct_idx * SMIC_INDEXATION_ELASTICITE_COTISATIONS / 1000
+            )  # Md€ — même formule que le canal niveau, écart cumulé au lieu d'un saut
+            delta_revenue += delta_cotisations_idx
+            delta_cotisations += delta_cotisations_idx
+
+            # Macro : RÉCURRENTS (pas one-time — l'écart d'indexation se
+            # maintient tant que le curseur reste hors de 1.0), mêmes
+            # élasticités que le canal niveau.
+            impact_pa += hausse_pct_idx * SMIC_INDEXATION_ELASTICITE_PA
+            impact_competitivite += -hausse_pct_idx * SMIC_INDEXATION_ELASTICITE_COMPETITIVITE
+            impact_chomage += hausse_pct_idx * SMIC_INDEXATION_ELASTICITE_CHOMAGE
 
         impacts = {
             'depenses': delta_spending,
@@ -130,7 +182,7 @@ class AdditionnelsMixin(_MixinBase):
         }
 
         _log_debug(self.debug_logs,
-            f"Y{year}: SMIC {smic_brut}€ brut ({hausse_pct*100:+.1f}%) → "
+            f"Y{year}: SMIC {smic_brut}€ brut, indexation {indexation:.2f} → "
             f"Dép. FP {delta_fp:.1f} Md€, Aides {delta_aides:.1f} Md€, "
             f"Cotis. +{delta_cotisations:.1f} Md€, Net {delta_spending-delta_revenue:+.1f} Md€"
         )
