@@ -37,6 +37,8 @@ TRACEABILITY_KEYS = frozenset({
     'prevention_organisation', 'taux',
     'description',      # str — métadonnée libellé (_apply_asu)
     'rabot_details',    # dict — tolérance ImpactsDict documentée (_apply_rabot_uniforme)
+    'recettes_taux_superieur',  # float — composante isolée de `recettes` (_apply_impot_revenu),
+    'recettes_decote',          # 2026-10, nécessaire depuis la scission UI taux_superieur/decote.
 })
 
 # Clés d'infrastructure (échec handler / message d'erreur) posées par

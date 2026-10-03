@@ -335,7 +335,16 @@ class FiscaliteMenagesMixin(_MixinBase):
             'recettes': delta_revenue,
             'gini': gini,
             'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            # AJOUT 2026-10 (fork VotePop) : composantes SÉPARÉES de `recettes` ci-dessus,
+            # pures clés de TRAÇABILITÉ pour l'affichage frontend — IGNORÉES par
+            # l'agrégation macro (seule `recettes` est lue par le moteur). Nécessaires
+            # depuis que `taux_superieur` et `decote` sont devenues deux cartes UI
+            # distinctes (ex-même carte "Impôt sur le revenu (barème)") : sans cette
+            # séparation, chaque carte affichait le total COMBINÉ des deux leviers (bug
+            # signalé par l'utilisateur — régler l'un affichait aussi l'effet de l'autre).
+            'recettes_taux_superieur': delta_taux,
+            'recettes_decote': delta_decote,
         }
         return 0, delta_revenue, impacts
 

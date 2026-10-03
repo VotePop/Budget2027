@@ -467,7 +467,7 @@ const THEMES = [
        ]},
       {id:"impot_revenu", param:"decote", key:"impot_revenu__decote", label:"Décote de l'impôt sur le revenu",
        scope:"Mécanisme qui allège l'impôt des foyers modestes en bas du barème.",
-       min:0.5, max:1.5, step:0.1, default:1.0, fmt:"mult",
+       min:0.5, max:1.5, step:0.1, default:1.0, fmt:"mult", chiffrage:"×1,0 (mécanisme actuel)",
        folded:[
          {id:"bareme_indexation", param:"ajustement_pts", key:"bareme_indexation__ajustement_pts", label:"Indexation du barème (toutes tranches)", scope:"Ajuste l'indexation annuelle de toutes les tranches sur l'inflation, pour tous les niveaux de revenu.",
           min:-2, max:2, step:0.1, default:0, fmt:"ptssigned", chiffrage:"indexation normale (statu quo)"},
@@ -1502,8 +1502,20 @@ function findImpact(measureImpactsByYear, id){
 // On calcule donc un effet NET sur le solde public : recettes - dépenses (positif =
 // améliore le solde, qu'il s'agisse d'un gain de recettes OU d'une économie de dépenses).
 // Pour une mesure fiscale pure (dépenses=0), ce calcul redonne exactement l'ancien résultat.
-function netEffect(imp){
+// `impot_revenu` est le SEUL id partagé par deux cartes top-level distinctes ("IR —
+// tranche supérieure" et "Décote de l'impôt sur le revenu", scindées 2026-10 — voir
+// handlers/fiscalite_menages.py::_apply_impot_revenu). Les deux cartes cherchent
+// l'impact par ID, donc sans ce cas particulier elles affichaient TOUTES LES DEUX le
+// total combiné des deux leviers (bug signalé par l'utilisateur : régler la décote
+// faisait bouger l'affichage de la carte tranche supérieure, et vice versa). Le handler
+// expose désormais les deux composantes séparément (`recettes_taux_superieur` /
+// `recettes_decote`) spécifiquement pour permettre cette distinction ici.
+function netEffect(imp, item){
   if (!imp) return 0;
+  if (item && item.id === "impot_revenu"){
+    if (item.param === "taux_superieur") return imp.recettes_taux_superieur || 0;
+    if (item.param === "decote") return imp.recettes_decote || 0;
+  }
   return (imp.recettes||0) - (imp.depenses||0);
 }
 // Le mot employé dépend de ce que la mesure touche en premier lieu (item.cible, repris
@@ -1523,7 +1535,7 @@ async function runSimulate(){
     const coutItems = [];
     ALL_CARDS.forEach(item => {
       const imp = findImpact(data.measure_impacts, item.id);
-      const rec = netEffect(imp);
+      const rec = netEffect(imp, item);
       const on = state[item.key].on;
       const changed = on && Math.abs(rec) >= 0.05;
       const cls = rec > 0 ? "good" : "bad";
