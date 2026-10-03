@@ -233,6 +233,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .constants import ETI_TRANCHE_SUPERIEURE
+
 DECILES = [f"D{i}" for i in range(1, 11)]
 
 # Chaque entrée : mesure du moteur francebudget.fr -> (shares par décile
@@ -473,21 +475,42 @@ DECILE_SHARES: dict[str, dict[str, Any]] = {
             "sans objet) et D4 (haut de la fenêtre), zéro au-delà."
         ),
         "note_rapprochement": (
-            "DOUBLE LIMITE IMPORTANTE à signaler : (1) ceci est une zone de PLAUSIBILITÉ "
-            "ancrée sur des seuils réels, PAS une distribution mesurée de bénéficiaires — "
-            "aucune publication ne confirme les parts exactes (5/30/40/20/5) choisies ici, "
-            "seule leur CONCENTRATION en D2-D4 repose sur un fait réel (position du seuil "
-            "d'entrée dans l'impôt). (2) le handler `_apply_impot_revenu` combine dans UNE "
-            "SEULE mesure deux mécanismes à l'incidence décile très différente : la décote "
-            "(ci-dessus, classes moyennes basses) ET le taux de la tranche supérieure "
-            "(`taux_superieur`, structurellement 100% D10, cf. seuil RFR > 160 950€, même "
-            "logique que `cdhr`). Cette clé décile UNIQUE n'est donc fiable QUE lorsque "
-            "`taux_superieur` reste proche de son défaut (45%) et que seule `decote` varie — "
-            "si `taux_superieur` est aussi modifié, cette clé SOUS-ESTIME la part réelle de "
-            "D10 (l'effet taux_superieur y est entièrement concentré mais n'est pas isolé "
-            "ici). Correction propre : scinder `impot_revenu` en deux mesures distinctes dans "
-            "le moteur (décote / taux supérieur), non fait à ce stade (changement "
-            "d'architecture hors périmètre de cette tâche)."
+            "Ceci est une zone de PLAUSIBILITÉ ancrée sur des seuils réels, PAS une "
+            "distribution mesurée de bénéficiaires — aucune publication ne confirme les "
+            "parts exactes (5/30/40/20/5) choisies ici, seule leur CONCENTRATION en D2-D4 "
+            "repose sur un fait réel (position du seuil d'entrée dans l'impôt). Ces parts "
+            "ne couvrent QUE l'effet décote : le taux de la tranche supérieure "
+            "(`taux_superieur`, structurellement 100% D10, seuil RFR > 160 950€, même "
+            "logique que `cdhr`) est désormais isolé et ajouté à D10 séparément par "
+            "`decile_breakdown` (cf. `_impot_revenu_decote_vs_taux`) plutôt que d'être "
+            "dilué dans cette même clé — ne plus utiliser `shares` seul pour estimer "
+            "l'effet total de cette mesure."
+        ),
+    },
+    "bareme_indexation": {
+        "shares": [0.0, 0.0, 0.0, 0.0, 0.01, 0.04, 0.09, 0.15, 0.24, 0.47],
+        "estimation": True,
+        "source": (
+            "Pas de table dédiée à l'effet d'un écart d'indexation du barème par décile "
+            "(mécanisme non isolé dans les publications DGFiP/IPP, qui ne chiffrent que des "
+            "réformes de barème déjà votées, jamais un scénario générique de sous/sur-"
+            "indexation). Clé construite par ANALOGIE avec la concentration bien documentée "
+            "de l'impôt sur le revenu par décile (DGFiP, statistiques annuelles des revenus "
+            "déclarés) : seuls les foyers effectivement imposables sont affectés par un "
+            "décalage des tranches, et cette population est elle-même très concentrée dans "
+            "la moitié supérieure des déciles de niveau de vie (le décile supérieur acquitte "
+            "à lui seul environ la moitié de l'IR total, les 5 premiers déciles quasiment "
+            "rien) — un gel ou une sur-indexation du barème touche donc mécaniquement cette "
+            "même population, dans des proportions voisines."
+        ),
+        "note_rapprochement": (
+            "ESTIMATION PAR ANALOGIE avec la distribution GLOBALE de l'IR, pas une mesure "
+            "dédiée à l'effet d'indexation lui-même : en toute rigueur, un décalage des "
+            "tranches touche surtout les foyers dont le revenu est proche d'un SEUIL de "
+            "tranche (effet marginal), pas forcément proportionnellement à l'IR total déjà "
+            "acquitté par décile — nuance non capturée ici, faute de donnée plus précise. "
+            "Les déciles D1-D4 sont à 0% car structurellement non imposables (en-dessous du "
+            "seuil d'entrée dans l'IR), pas un artefact d'arrondi."
         ),
     },
     "elargissement_ir": {
@@ -625,10 +648,59 @@ def _net_impact_md_eur(mesure_impacts: dict) -> float:
     return total
 
 
-def decile_breakdown(measure_impacts_by_year: list[dict]) -> dict:
+def _impot_revenu_decote_vs_taux(params: dict) -> tuple[float, float]:
+    """Décompose le delta Md€ total de ``impot_revenu`` en ses 2 mécanismes
+    indépendants (décote / taux marginal >160 950€), en reproduisant EXACTEMENT
+    la formule de ``handlers/fiscalite_menages.py::_apply_impot_revenu`` (mêmes
+    constantes). Nécessaire car le moteur ne renvoie que la SOMME des deux
+    (``recettes = delta_taux + delta_decote``) — pour ventiler correctement il
+    faut les deux termes séparément : la décote se répartit D1-D5 (clé
+    ``DECILE_SHARES["impot_revenu"]``), le taux marginal >160 950€ touche par
+    construction EXCLUSIVEMENT les foyers au-dessus de ce seuil, donc 100% D10
+    (jamais "tous les déciles" : un relèvement de la tranche >160k€ ne change
+    rien à l'impôt d'un foyer qui ne l'atteint pas).
+
+    Retourne ``(delta_taux, delta_decote)`` en Md€. Si cette formule dérive de
+    celle du handler (refactor futur), ce calcul devient incorrect en silence
+    — à garder synchronisé manuellement (pas de test de non-régression croisé
+    pour l'instant, cf. limite assumée)."""
+    taux_sup = params.get('taux_superieur', 0.45)
+    decote = params.get('decote', 1.0)
+
+    foyers_riches = 400_000
+    revenu_moyen_tranche = 220_000
+    seuil_tranche_sup = 160_950
+    assiette_marginale = revenu_moyen_tranche - seuil_tranche_sup
+
+    delta_taux_brut = (taux_sup - 0.45) * foyers_riches * assiette_marginale / 1e9
+
+    taux_marginal_total_avant = 0.45 + 0.097 + 0.04
+    taux_marginal_total_apres = taux_sup + 0.097 + 0.04
+    if taux_marginal_total_avant < 1.0 and taux_sup > 0.45:
+        delta_net_of_tax = (
+            (1 - taux_marginal_total_apres) - (1 - taux_marginal_total_avant)
+        ) / (1 - taux_marginal_total_avant)
+        facteur_comportemental = max(0.5, 1 + ETI_TRANCHE_SUPERIEURE * delta_net_of_tax)
+    else:
+        facteur_comportemental = 1.0
+
+    delta_taux = delta_taux_brut * facteur_comportemental
+    delta_decote = (1.0 - decote) * 7.5
+    return delta_taux, delta_decote
+
+
+def decile_breakdown(measure_impacts_by_year: list[dict], mesures: dict | None = None) -> dict:
     """Construit la ventilation par décile pour toutes les mesures
     reconnues (présentes dans DECILE_SHARES) à partir du champ
     ``measure_impacts`` déjà renvoyé par POST /simulate.
+
+    ``mesures`` : dict brut des paramètres envoyés par le client (même forme
+    que ``SimulationRequest.mesures``), optionnel. Nécessaire UNIQUEMENT pour
+    ``impot_revenu`` (voir ``_impot_revenu_decote_vs_taux``) : cette mesure
+    combine 2 mécanismes à l'incidence décile opposée (décote bas de barème /
+    taux marginal >160k€ structurellement D10) dans un seul delta Md€ — sans
+    les params on ne peut pas les séparer et on retombe sur l'ancien
+    comportement (décote seule, taux marginal ignoré par la ventilation).
 
     Retourne un dict :
     {
@@ -663,7 +735,19 @@ def decile_breakdown(measure_impacts_by_year: list[dict]) -> dict:
             continue
         cfg = DECILE_SHARES[mesure]
         shares = cfg["shares"]
-        par_decile = {d: round(net_md_eur * s, 4) for d, s in zip(DECILES, shares)}
+        if mesure == "impot_revenu":
+            # Cas spécial : décompose le delta en (taux marginal >160k€ -> 100% D10)
+            # + (décote -> clé `shares` ci-dessus, D1-D5). Évite de sous-estimer D10
+            # quand `taux_superieur` est modifié (limite documentée dans
+            # `note_rapprochement` avant ce correctif). Repose sur `mesures` : sans
+            # lui, on ne peut pas isoler les deux termes et on retombe sur l'ancien
+            # comportement (décote seule).
+            params_ir = (mesures or {}).get("impot_revenu", {})
+            delta_taux, delta_decote = _impot_revenu_decote_vs_taux(params_ir)
+            par_decile = {d: round(delta_decote * s, 4) for d, s in zip(DECILES, shares)}
+            par_decile["D10"] = round(par_decile["D10"] + delta_taux, 4)
+        else:
+            par_decile = {d: round(net_md_eur * s, 4) for d, s in zip(DECILES, shares)}
         par_mesure[mesure] = {
             "total_md_eur": round(net_md_eur, 4),
             "par_decile": par_decile,

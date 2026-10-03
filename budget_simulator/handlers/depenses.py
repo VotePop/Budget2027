@@ -991,13 +991,35 @@ class DepensesMixin(_MixinBase):
         est une extrapolation, pas une projection officielle. ``montant<=0`` équivaut à l'ancien
         ``reforme_active=0`` (système actuel, abattement 10% inchangé) ; conservé pour
         compatibilité avec les appels existants ne passant que ``reforme_active``.
+
+        AJOUT 2026-10 bis : paramètre ``supprimer`` (0/1), mutuellement exclusif avec
+        ``montant``. Suppression totale et sans remplacement de l'abattement de 10%
+        (plus de forfait, plus d'abattement du tout). AUCUNE source officielle dans le
+        dépôt pour ce scénario précis (seul le forfait PLF 2026 à 2000€ est chiffré par
+        les sources ci-dessus) : le montant utilisé ici (+4,3 Md€/an en régime permanent)
+        est une ESTIMATION PROPRE, non officielle, obtenue par analogie avec l'ordre de
+        grandeur de la dépense fiscale actuelle de l'abattement 10% (Voies et Moyens,
+        quelques Md€/an) — à traiter comme une extrapolation, pas une projection chiffrée.
         """
         reforme = params.get('reforme_active', 0)  # 0 = système actuel, 1 = réforme (legacy)
+        supprimer = params.get('supprimer', 0)  # 1 = suppression totale de l'abattement (estimation propre)
         montant = params.get('montant', 2000.0 if reforme == 1 else 0.0)  # € par personne
+        if supprimer == 1:
+            montant = 0.0  # mutuellement exclusif : la suppression ignore le forfait
         phasing = 0.0
 
         # === BUDGET IMPACT ===
-        if montant > 0:
+        if supprimer == 1:
+            # Phasing identique au forfait (montée en charge administrative sur 2 ans)
+            year_idx = year - 2025
+            if year_idx <= 0:
+                phasing = 0.0
+            elif year_idx == 1:  # 2026
+                phasing = 0.3
+            else:  # 2027+
+                phasing = 1.0
+            delta_revenue = 4.3 * phasing  # Estimation propre, non sourcée (voir docstring)
+        elif montant > 0:
             # Phasing progressif sur 2 ans (montée en charge administrative)
             year_idx = year - 2025
             if year_idx <= 0:
@@ -1012,7 +1034,7 @@ class DepensesMixin(_MixinBase):
         else:
             delta_revenue = 0
 
-        reforme = 1 if montant > 0 else 0  # pour la suite du calcul (gini/PA), inchangé
+        reforme_active = 1 if (montant > 0 or supprimer == 1) else 0  # pour la suite (gini/PA)
 
         # === MACRO IMPACTS ===
 
@@ -1020,9 +1042,11 @@ class DepensesMixin(_MixinBase):
         # Réforme = hausse impôts retraités aisés = LÉGÈREMENT PROGRESSIF
         # Mais 10% plus riches = 60% du gain = distribution inégale
         # Rule: Impact modéré car ciblé
-        params_tracking = {'reforme': reforme, 'montant': montant}
+        params_tracking = {'reforme': reforme_active, 'montant': montant, 'supprimer': supprimer}
         if self._is_first_year_change('abattement_retraites', params_tracking):
-            if reforme == 1:
+            if supprimer == 1:
+                gini = -0.0086  # Échelle ~2x le forfait 2000€ (base plus large, tous retraités imposables)
+            elif reforme_active == 1:
                 gini = -0.004 * (montant / 2000.0)  # Légèrement progressif (taxe les riches), échelle sur le forfait
             else:
                 gini = 0.0
@@ -1033,7 +1057,9 @@ class DepensesMixin(_MixinBase):
         # 50% des foyers concernés (7M foyers)
         # Perte moyenne: ~570€/an pour les concernés
         # Impact global: -0.0015% PA (effet limité car ciblé)
-        if reforme == 1:
+        if supprimer == 1:
+            pouvoir_achat = -0.0032 * phasing  # Échelle ~2x le forfait, base plus large (estimation propre)
+        elif reforme_active == 1:
             pouvoir_achat = -0.0015 * phasing * (montant / 2000.0)
         else:
             pouvoir_achat = 0
@@ -1049,7 +1075,8 @@ class DepensesMixin(_MixinBase):
         }
 
         _log_debug(self.debug_logs,
-            f"Y{year}: Abattement retraites - Réforme {'ACTIVE' if reforme == 1 else 'INACTIVE'}, "
+            f"Y{year}: Abattement retraites - Suppression {'ACTIVE' if supprimer == 1 else 'inactive'}, "
+            f"Forfait {'ACTIVE' if (reforme_active == 1 and supprimer == 0) else 'inactif'}, "
             f"Phasing {phasing*100:.0f}%, Recettes {delta_revenue:+.1f}Md€"
         )
 

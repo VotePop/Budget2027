@@ -898,6 +898,58 @@ class FiscaliteMenagesMixin(_MixinBase):
         )
         return 0, delta_revenue, impacts
 
+    def _apply_bareme_indexation(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
+        """Ajout 2026-10 (fork VotePop, demande utilisateur suite à confusion avec
+        `impot_revenu` : "il manque une carte avec un curseur d'ajustement des tranches
+        des gens (tous niveaux) proportionnellement, comme ce qui se passe chaque année").
+        DISTINCT de `impot_revenu` : ce dernier ne touche QUE le taux de la tranche
+        supérieure (hauts revenus) et la décote (bas de barème) ; ce levier-ci simule un
+        ajustement de l'INDEXATION DE TOUTES LES TRANCHES sur l'inflation — le mécanisme
+        qui, chaque année, relève (ou non) les seuils du barème pour suivre la hausse des
+        prix. Un barème sous-indexé ("gel du barème") fait mécaniquement payer PLUS
+        d'impôt à TOUS les foyers imposables (leur revenu nominal progresse avec
+        l'inflation, les seuils non) ; un barème sur-indexé fait l'inverse.
+
+        `ajustement_pts` = écart d'indexation en points par rapport à l'inflation
+        constatée (0 = indexation normale/statu quo, valeur par défaut). Négatif =
+        sous-indexation ("gel" partiel ou total) = hausse d'impôt pour tous les foyers
+        imposables. Positif = sur-indexation = baisse d'impôt pour tous.
+
+        Calibrage : ESTIMATION PROPRE, pas une projection officielle. Point de référence
+        repris de la presse économique lors des débats PLF 2025 sur un gel du barème
+        (ordre de grandeur ~3,7 Md€/an pour un gel total face à une inflation d'environ
+        2 pts), d'où un rendement d'environ 1,85 Md€ par point de sous-indexation,
+        appliqué ICI de façon linéaire et constante (pas de recalibrage dynamique sur
+        l'inflation réellement simulée année par année — limite assumée). Ventilation par
+        décile dans decile.py (`DECILE_SHARES["bareme_indexation"]`) : ESTIMATION PAR
+        ANALOGIE avec la concentration connue de l'IR par décile (DGFiP), faute de table
+        dédiée à l'effet d'un écart d'indexation du barème — cf. docstring de cette clé pour
+        le détail et les limites assumées.
+        """
+        ajustement_pts = params.get('ajustement_pts', 0.0)
+
+        if abs(ajustement_pts) < 1e-9:
+            return 0, 0, {}
+
+        RENDEMENT_PAR_POINT_MD = 1.85  # Estimation propre (voir docstring), non sourcée officiellement
+        delta_revenue = -ajustement_pts * RENDEMENT_PAR_POINT_MD
+
+        # Gini / pouvoir d'achat : effet DIFFUS sur tous les foyers imposables (pas ciblé
+        # comme `impot_revenu`/tranche sup), donc un impact par unité de recette plus
+        # faible — ESTIMATION PAR ANALOGIE avec les autres leviers IR de ce fichier.
+        if self._is_first_year_change('bareme_indexation', {'ajustement_pts': ajustement_pts}):
+            gini = -0.0015 * delta_revenue
+            pouvoir_achat = -0.0008 * delta_revenue
+        else:
+            gini = 0.0
+            pouvoir_achat = 0.0
+
+        impacts = {'recettes': delta_revenue, 'gini': gini, 'pouvoir_achat': pouvoir_achat}
+        _log_debug(self.debug_logs,
+            f"Y{year}: Indexation barème - Ajustement {ajustement_pts:+.1f}pt -> recettes {delta_revenue:+.2f} Md€"
+        )
+        return 0, delta_revenue, impacts
+
     def _apply_accises(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """Levier sur le NIVEAU GLOBAL des droits d'accise indirects — TICPE
         (carburants) + droits de consommation sur le tabac + droits sur les alcools —,

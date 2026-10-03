@@ -215,7 +215,7 @@ async def simulate_decile(request: SimulationRequest):
     try:
         results, details, report = sim.simulate()
         measure_impacts = report.get('measure_impacts_by_year', [])
-        decile = decile_breakdown(measure_impacts)
+        decile = decile_breakdown(measure_impacts, mesures=request.mesures)
         taille = ventilation_taille(measure_impacts)
 
         return {

@@ -556,6 +556,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             'impot_societes': self._apply_impot_societes,
             'tva_rate': self._apply_tva_rate,
             'impot_revenu': self._apply_impot_revenu,
+            'bareme_indexation': self._apply_bareme_indexation,
             'csg': self._apply_csg,
             'cotisations_salariales': self._apply_cotisations_salariales,
             'elargissement_ir': self._apply_elargissement_ir,

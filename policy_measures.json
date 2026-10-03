@@ -434,6 +434,25 @@
       }
     },
     {
+      "id": "bareme_indexation",
+      "categorie": "fiscalite",
+      "nom": "Indexation du barème IR (toutes tranches)",
+      "description": "Ajustement de l'indexation de TOUTES les tranches du barème sur l'inflation (tous niveaux de revenu)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "ajustement_pts": {
+          "valeur_defaut": 0.0,
+          "min": -2.0,
+          "max": 2.0,
+          "step": 0.1,
+          "label": "Écart d'indexation (pts vs inflation)",
+          "type": "number",
+          "tooltip": "0 = indexation normale (statu quo). Négatif = gel partiel/total du barème (hausse d'impôt pour tous). Positif = sur-indexation (baisse pour tous). Estimation propre, non officielle."
+        }
+      }
+    },
+    {
       "id": "fraude_sociale",
       "bloc": "efficience_depenses",
       "categorie": "social",

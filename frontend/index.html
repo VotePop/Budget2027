@@ -201,11 +201,28 @@
   .lever.open .lever-detail{display:flex;}
   .lever-scope{font-size:0.72rem; color:var(--muted); line-height:1.5; margin:0;}
   .lever-chiffrage{
-    display:flex; justify-content:space-between; align-items:baseline; font-size:0.72rem;
+    display:flex; justify-content:space-between; align-items:flex-start; font-size:0.72rem;
     background:var(--surface2); border-radius:7px; padding:5px 8px; color:var(--muted);
   }
-  .lever-chiffrage .val{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums;}
-  .lever-chiffrage.impact-placeholder{background:rgba(245,185,66,0.08); border:1px dashed rgba(245,185,66,0.35);}
+  /* Le slot "val" peut contenir soit un simple texte (ligne "Aujourd'hui", ou "avec ce
+     réglage" sans total séparé), soit 2 lignes empilées (.val-sum + .val-delta) quand on a
+     À LA FOIS un total cumulé ET un gain/perte à afficher — demande explicite : "sur deux
+     lignes, 1 pour la somme et l'autre le gain ou la baisse" plutôt qu'une seule ligne dense
+     "215,3 Md€ / an (+3,6 Md€ vs État)". */
+  .lever-chiffrage .val{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums;
+    display:flex; flex-direction:column; align-items:flex-end; gap:1px; text-align:right;}
+  .lever-chiffrage .val .val-sum{color:var(--text);}
+  .lever-chiffrage .val .val-delta{font-size:0.68rem; font-weight:700;}
+  .lever-chiffrage .val .val-delta.good{color:var(--good);}
+  .lever-chiffrage .val .val-delta.bad{color:var(--bad);}
+  /* "Avec ce réglage" : toujours le libellé seul sur sa ligne, puis la valeur à la ligne
+     suivante (jamais côte à côte) — demande explicite, valable sur TOUTES les cartes, y
+     compris le cas "statu quo" qui n'a qu'une valeur simple. */
+  .lever-chiffrage.impact-placeholder{
+    background:rgba(245,185,66,0.08); border:1px dashed rgba(245,185,66,0.35);
+    flex-direction:column; align-items:stretch; gap:3px;
+  }
+  .lever-chiffrage.impact-placeholder .val{align-items:flex-start; text-align:left;}
   .lever-chiffrage.impact-placeholder.changed{background:var(--surface2); border-style:solid; border-color:var(--border);}
   .lever-chiffrage .val.good{color:var(--good);}
   .lever-chiffrage .val.bad{color:var(--bad);}
@@ -437,7 +454,7 @@ const THEMES = [
     sub:"TVA, impôt sur le revenu, cotisations, CSG — ce qui pèse directement sur les particuliers.",
     levers:[
       {id:"tva_rate", param:"taux", key:"tva_rate__taux", label:"Taux de TVA",
-       scope:"Taux normal de TVA (biens et services courants). Au-delà d'environ 35-37%, le modèle affiche une recette additionnelle qui plafonne plutôt que de continuer à augmenter.",
+       scope:"Taux normal de TVA (biens et services courants).",
        min:0, max:0.40, step:0.005, default:0.20, fmt:"pct1", decile:true,
        chiffrage:"211,7 Md€ / an", chiffrageMdEur:211.7,
        subParams:[
@@ -448,36 +465,37 @@ const THEMES = [
          {param:"taux_particulier", key:"tva_rate__taux_particulier", label:"Taux particulier", scope:"Presse, médicaments remboursables par la Sécurité sociale.",
           min:0, max:0.10, step:0.001, default:0.021, fmt:"pct1"},
        ]},
-      {id:"impot_revenu", param:"taux_superieur", key:"impot_revenu__taux_superieur", label:"Impôt sur le revenu (barème)",
-       scope:"Regroupe plusieurs curseurs de la même mesure fiscale : le taux marginal (tranche >160k€) et la décote (foyers modestes) sont 2 mécanismes indépendants, pas liés entre eux.",
-       min:0.40, max:0.60, step:0.01, default:0.45, fmt:"pct0", decile:false,
-       chiffrage:"95,3 Md€ / an (IR total)", chiffrageMdEur:95.3,
-       subParams:[
-         {param:"decote", key:"impot_revenu__decote", label:"Décote IR (foyers modestes)", scope:"Ajuste le mécanisme de décote qui allège l'impôt des foyers modestes (1 = barème actuel). Ne dépend pas de la tranche >160k€.",
-          min:0.5, max:1.5, step:0.1, default:1.0, fmt:"mult"},
-       ],
+      {id:"impot_revenu", param:"decote", key:"impot_revenu__decote", label:"Décote de l'impôt sur le revenu",
+       scope:"Mécanisme qui allège l'impôt des foyers modestes en bas du barème.",
+       min:0.5, max:1.5, step:0.1, default:1.0, fmt:"mult",
        folded:[
-         {id:"elargissement_ir", param:"taux_contribuables_cible", key:"elargissement_ir__taux_contribuables_cible", label:"Élargissement de la base IR", scope:"Change la part des foyers qui paient effectivement l'IR (45% aujourd'hui), à la hausse ou à la baisse.",
+         {id:"bareme_indexation", param:"ajustement_pts", key:"bareme_indexation__ajustement_pts", label:"Indexation du barème (toutes tranches)", scope:"Ajuste l'indexation annuelle de toutes les tranches sur l'inflation, pour tous les niveaux de revenu.",
+          min:-2, max:2, step:0.1, default:0, fmt:"ptssigned", chiffrage:"indexation normale (statu quo)"},
+         {id:"elargissement_ir", param:"taux_contribuables_cible", key:"elargissement_ir__taux_contribuables_cible", label:"Élargissement de la base IR", scope:"Part des foyers qui paient effectivement l'impôt sur le revenu (45% aujourd'hui).",
           min:0.20, max:1.0, step:0.01, default:0.45, fmt:"pct0", chiffrage:"45% des foyers imposés"},
-         {id:"abattement_retraites", param:"montant", key:"abattement_retraites__montant", label:"Abattement fiscal retraités", scope:"Remplace l'abattement de 10% (plafonné 4399€) par un forfait par personne. 0€ = système actuel inchangé.",
-          min:0, max:10000, step:250, default:0, fmt:"eur", chiffrage:"régime actuel : abattement 10%"},
+         {id:"abattement_retraites", param:"montant", key:"abattement_retraites__montant", label:"Abattement fiscal retraités", scope:"Abattement de 10% sur les pensions, remplacé par un forfait par personne.",
+          min:0, max:10000, step:250, default:0, fmt:"eur", chiffrage:"10% (abattement actuel)",
+          subParams:[
+            {param:"supprimer", key:"abattement_retraites__supprimer", label:"Suppression totale de l'abattement", scope:"Supprime l'abattement de 10% sans le remplacer (option exclusive du forfait ci-dessus).",
+             bool:true, default:0, clearSiblingParam:"montant", disablesSibling:"abattement_retraites__montant"},
+          ]},
        ]},
-      {id:"csg", param:"taux", key:"csg__taux", label:"CSG / CRDS", scope:"Taux global de contribution sociale généralisée, sur une assiette large (revenus d'activité, remplacement, capital).",
+      {id:"csg", param:"taux", key:"csg__taux", label:"CSG / CRDS", scope:"Taux global de la CSG (revenus d'activité, remplacement, capital).",
        min:0.08, max:0.12, step:0.001, default:0.097, fmt:"pct1", decile:true, chiffrage:"≈153 Md€ / an", chiffrageMdEur:153,
        subParams:[
-         {param:"progressive", key:"csg__progressive", label:"CSG progressive", scope:"Rend la CSG progressive par décile de niveau de vie au lieu d'un taux uniforme (neutre sur le total des recettes par construction).", bool:true, default:0},
+         {param:"progressive", key:"csg__progressive", label:"CSG progressive", scope:"Rend la CSG progressive par décile au lieu d'un taux uniforme.", bool:true, default:0},
        ]},
-      {id:"cotisations_salariales", param:"baisse_points", key:"cotisations_salariales__baisse_points", label:"Cotisations salariales",
-       scope:"Variation du taux de cotisations sociales salariales. Positif = baisse, négatif = hausse.",
-       min:-3, max:5, step:0.5, default:0, fmt:"ptssigned", decile:true, chiffrage:"taux actuel 22%"},
+      {id:"cotisations_salariales", param:"baisse_points", key:"cotisations_salariales__baisse_points", label:"Cotisations salariales", invert:true,
+       scope:"Variation du taux de cotisations sociales salariales. Positif = hausse, négatif = baisse.",
+       min:-5, max:3, step:0.5, default:0, fmt:"ptssigned", decile:true, chiffrage:"taux actuel 22%"},
       {id:"quotient_familial", param:"plafond", key:"quotient_familial__plafond", label:"Quotient familial",
-       scope:"Plafond de l'avantage du quotient familial par demi-part additionnelle. 1791€ = régime actuel (impôt 2025, Légifiscal/Sénat). Historique : 2336€ (2012) → 2000€ (2013) → 1500€ (2014, indexé depuis). Coût total du dispositif (hors conjugal) : 19 Md€/an (Insee Analyses n°53, 2020). Non ventilé par décile.",
+       scope:"Plafond de l'avantage du quotient familial par demi-part additionnelle (1791€ = régime actuel).",
        min:500, max:2336, step:50, default:1791, fmt:"eur", decile:false,
-       chiffrage:"régime actuel : plafond 1791€/demi-part"},
+       chiffrage:"1791€ / demi-part"},
       {id:"quotient_conjugal", param:"intensite", key:"quotient_conjugal__intensite", label:"Quotient conjugal",
-       scope:"Individualisation de l'impôt sur le revenu des couples mariés/pacsés. 0% = statu quo (imposition commune, 2 parts). 100% = individualisation complète (+7,2 Md€/an, Insee Économie et Statistique n°526-527, 2021). Coût total du dispositif conjugal : 10,8 Md€/an. Mesure distincte du quotient familial. Non ventilé par décile.",
+       scope:"Individualisation de l'impôt des couples mariés/pacsés (100% = individualisation complète).",
        min:0, max:1, step:0.05, default:0, fmt:"pct0", decile:false,
-       chiffrage:"0% (statu quo, imposition commune)", chiffrageMdEur:0},
+       chiffrage:"0% (statu quo)", chiffrageMdEur:0},
     ]
   },
   {
@@ -491,14 +509,14 @@ const THEMES = [
        ],
        folded:[
          {id:"taxe_superprofits", param:"intensite", key:"taxe_superprofits__intensite", label:"Taxe sur les superprofits", scope:"Taxe temporaire (3 ans) sur les profits excédant leur niveau moyen 2018-2021.",
-          min:0, max:1, step:0.1, default:0, fmt:"pct0", chiffrage:"0 € aujourd'hui (taxe inexistante)", chiffrageMdEur:0},
+          min:0, max:1, step:0.1, default:0, fmt:"pct0", chiffrage:"0 € (taxe inexistante)", chiffrageMdEur:0},
          {id:"ttf", param:"taux", key:"ttf__taux", label:"Taxe sur les transactions financières", scope:"Achats d'actions de sociétés françaises cotées (seuil ~1 Md€ de capitalisation).",
           min:0.001, max:0.01, step:0.0005, default:0.004, fmt:"pct2", chiffrage:"2,5 Md€ / an (taux 0,4%)", chiffrageMdEur:2.5},
          {id:"taxe_gafa", param:"taux", key:"taxe_gafa__taux", label:"Taxe sur les services numériques (GAFA)", scope:"Chiffre d'affaires numérique des grandes entreprises tech (seuil CA mondial 750 M€).",
           min:0.01, max:0.08, step:0.005, default:0.03, fmt:"pct1", chiffrage:"0,7 Md€ / an (taux 3%)", chiffrageMdEur:0.7},
        ]},
       {id:"fraude_fiscale", param:"effort", key:"fraude_fiscale__effort", label:"Lutte contre la fraude fiscale", scope:"Intensité des contrôles fiscaux et sociaux (IA/data mining), de 0 (statu quo) à 1 (effort maximal).",
-       min:0, max:1, step:0.1, default:0, fmt:"pct0", chiffrage:"gisement estimé 80-100 Md€"},
+       min:0, max:1, step:0.1, default:0, fmt:"pct0", chiffrage:"gisement 80-100 Md€"},
     ]
   },
   {
@@ -506,12 +524,12 @@ const THEMES = [
     sub:"IFI, succession, foncier — ajustés ensemble ou via une alternative climatique.",
     levers:[
       {id:"fiscalite_patrimoine", param:"intensite", key:"fiscalite_patrimoine__intensite", label:"Fiscalité du patrimoine", scope:"Fiscalité globale du patrimoine : IFI + droits de succession + taxe foncière, ajustés simultanément.",
-       min:-0.30, max:0.30, step:0.05, default:0, fmt:"pct0signed", decile:true, chiffrage:"53 Md€ / an (IFI 2 + Succession 15 + Foncière 36)", chiffrageMdEur:53,
+       min:-0.30, max:0.30, step:0.05, default:0, fmt:"pct0signed", decile:true, chiffrage:"53 Md€ / an", chiffrageMdEur:53,
        folded:[
          {id:"isf_climatique", param:"intensite", key:"isf_climatique__intensite", label:"ISF Climatique", scope:"Remplace l'IFI par un ISF climatique élargi (assiette + bonus écologique).",
           min:0, max:1, step:0.01, default:0, fmt:"pct0", chiffrage:"IFI actuel : 2 Md€ / an", chiffrageMdEur:2},
          {id:"taxe_holdings_patrimoniales", param:"taux", key:"taxe_holdings_patrimoniales__taux", label:"Taxe sur les holdings patrimoniales", scope:"Patrimoine financier des holdings familiales (≥5 M€ d'actifs, revenus passifs >50% du total).",
-          min:0, max:0.04, step:0.005, default:0.02, fmt:"pct1", decile:true, chiffrage:"≈1,0 Md€ / an (taux 2%, PLF 2026)", chiffrageMdEur:1.0},
+          min:0, max:0.04, step:0.005, default:0.02, fmt:"pct1", decile:true, chiffrage:"≈1,0 Md€ / an", chiffrageMdEur:1.0},
        ]},
     ]
   },
@@ -519,31 +537,35 @@ const THEMES = [
     cat:"fiscalite", key:"climat_energie", label:"🌍 Fiscalité climat, énergie & consommation",
     sub:"TVA énergie et accises (carburants, tabac, alcool) — la fiscalité qui pèse sur la consommation courante.",
     levers:[
-      {id:"tva_energie", param:"taux", key:"tva_energie__taux", label:"TVA Énergie", scope:"Taux unique de TVA sur le gaz et l'électricité. Taux simulé librement.",
+      {id:"tva_energie", param:"taux", key:"tva_energie__taux", label:"TVA Énergie", scope:"Taux unique de TVA sur le gaz et l'électricité.",
        min:0, max:0.50, step:0.005, default:0.20, fmt:"pct1", decile:true, chiffrage:"24 Md€ / an", chiffrageMdEur:24},
       {id:"accises", param:"variation_pct", key:"accises__variation_pct", label:"Accises (TICPE + tabac + alcool)",
-       scope:"Variation relative du niveau des 3 droits d'accise (TICPE carburants, tabac, alcools), appliquée identiquement aux 3 composantes — distincte des taux de TVA. Assiette 49,0 Md€/an (TICPE 30,5 + tabac 13,95 + alcools 4,565, Sénat rapport n°638/DGDDI). Régressif : taux d'effort de 4,3% du revenu pour les 10% les plus modestes contre 1,3% pour les 10% les plus aisés (Insee ES413, Ruiz & Trannoy 2008) — non ventilé par décile faute de revenu moyen par décile publié dans la même étude.",
+       scope:"Variation relative des droits d'accise sur carburants, tabac et alcools.",
        min:-0.3, max:0.5, step:0.01, default:0, fmt:"pct0signed", decile:false,
-       chiffrage:"0% (niveau actuel, assiette 49,0 Md€/an)", chiffrageMdEur:0},
+       chiffrage:"49,0 Md€ / an", chiffrageMdEur:49.0},
     ]
   },
   {
     cat:"fiscalite", key:"hauts_revenus_capital", label:"💎 Fiscalité des hauts revenus & du capital",
     sub:"Impôt minimum sur les hauts revenus, taxe patrimoniale \"Zucman\" et alignement PFU/barème progressif sur les revenus du capital.",
     levers:[
+      {id:"impot_revenu", param:"taux_superieur", key:"impot_revenu__taux_superieur", label:"IR — tranche supérieure (hauts revenus)",
+       scope:"Taux marginal de la tranche supérieure du barème (revenus >160k€).",
+       min:0.40, max:0.60, step:0.01, default:0.45, fmt:"pct0", decile:false,
+       chiffrage:"95,3 Md€ / an (IR total)", chiffrageMdEur:95.3},
       {id:"cdhr", param:"intensite", key:"cdhr__intensite", label:"CDHR (impôt minimum hauts revenus)", scope:"Contribution différentielle sur les hauts revenus (RFR >250k€ seul / 500k€ couple). 1,0 = régime actuel.",
-       min:0, max:1.5, step:0.1, default:1.0, fmt:"mult", decile:true, chiffrage:"rendement réel 2026 : 0,65 Md€/an", chiffrageMdEur:0.65},
+       min:0, max:1.5, step:0.1, default:1.0, fmt:"mult", decile:true, chiffrage:"rendement : 0,65 Md€/an", chiffrageMdEur:0.65},
       {id:"taxe_zucman", param:"intensite", key:"taxe_zucman__intensite", label:"Taxe \"Zucman\"",
-       scope:"Plancher d'imposition de 2% sur le patrimoine net des foyers détenant plus de 100 M€ (proposition Gabriel Zucman, rapport G20 2024). 0% = non appliquée, 100% = taux plein. DEUX estimations de rendement délibérément exposées : proposant (Zucman) 20 Md€/an ±5 Md€, contre-estimation iFRAP 2-3 Md€/an (double imposition non défalquée, IS déjà payé par les sociétés détenues via holdings) — le réglage fin ci-dessous pondère entre les deux. Risque constitutionnel documenté (censure 2012 d'un taux marginal 1,8% jugé confiscatoire par le Conseil constitutionnel). Ventilée à 100% sur D10 (estimation) ; non ventilée par taille d'entreprise (prudence assumée).",
+       scope:"Plancher d'imposition de 2% sur le patrimoine net des foyers détenant plus de 100 M€.",
        min:0, max:1, step:0.05, default:0, fmt:"pct0", decile:true,
        chiffrage:"0% (non appliquée)", chiffrageMdEur:0,
        subParams:[
          {param:"part_critique", key:"taxe_zucman__part_critique", label:"Poids de la contre-estimation critique",
-          scope:"0 = rendement plein du proposant (20 Md€ au taux plein). 1 = rendement net de la critique iFRAP (2,5 Md€ au taux plein, double-comptage IS défalqué). Curseur assumé par ce moteur (pas une pondération publiée) pour situer le scénario entre les deux bornes sourcées.",
+          scope:"Pondère le rendement retenu entre l'estimation haute et l'estimation basse de la taxe.",
           min:0, max:1, step:0.1, default:0.5, fmt:"pct0"},
        ]},
       {id:"pfu_bareme", param:"intensite", key:"pfu_bareme__intensite", label:"Alignement PFU / barème progressif",
-       scope:"Retour au barème progressif de l'IR pour les revenus du capital au lieu du prélèvement forfaitaire unique (PFU, 30%). 0% = PFU maintenu (statu quo). 100% = retour intégral au barème : rendement brut 1,55 Md€ (milieu fourchette 1,4-1,7 Md€, France Stratégie / Sénat n°19-042-1), net d'un facteur comportemental 0,85 (rebond de distribution de dividendes, IPP). Non ventilé par décile.",
+       scope:"Retour au barème progressif de l'impôt sur le revenu pour les revenus du capital, à la place du PFU (30%).",
        min:0, max:1, step:0.05, default:0, fmt:"pct0", decile:false,
        chiffrage:"0% (PFU maintenu à 30%)", chiffrageMdEur:0},
     ]
@@ -1092,7 +1114,7 @@ function fmtValue(l, v){
     case "pct2": return (v*100).toFixed(2) + "%";
     case "pct0": return (v*100).toFixed(0) + "%";
     case "pct0signed": return (v>=0?"+":"") + (v*100).toFixed(0) + "%";
-    case "ptssigned": return v===0 ? "0 pt (inchangé)" : (v>0 ? "-"+v.toFixed(1)+" pt (baisse)" : "+"+Math.abs(v).toFixed(1)+" pt (hausse)");
+    case "ptssigned": return v===0 ? "0 pt (inchangé)" : (v>0 ? "+"+v.toFixed(1)+" pt (hausse)" : "-"+Math.abs(v).toFixed(1)+" pt (baisse)");
     case "md": return v.toFixed(0) + " Md€";
     case "md1": return v.toFixed(1) + " Md€";
     case "mult": return "×" + v.toFixed(1);
@@ -1125,10 +1147,13 @@ const ALL_CARDS = THEMES.flatMap(t => t.levers).flatMap(l => [
   Object.assign({_kind:"principal"}, l),
   ...(l.folded||[]).map(fm => Object.assign({_kind:"folded"}, fm)),
 ]);
-// Tous les sous-paramètres, à plat, avec une référence vers leur levier parent.
-const ALL_SUBPARAMS = THEMES.flatMap(t => t.levers).flatMap(l =>
-  (l.subParams||[]).map(sp => Object.assign({}, sp, {id:l.id, _parentKey:l.key}))
-);
+// Tous les sous-paramètres, à plat, avec une référence vers leur levier parent — y compris
+// les sous-paramètres d'une mesure "folded" (ex. "supprimer" sous abattement_retraites),
+// dont le parent est la carte folded elle-même, pas le levier principal qui la contient.
+const ALL_SUBPARAMS = THEMES.flatMap(t => t.levers).flatMap(l => [
+  ...(l.subParams||[]).map(sp => Object.assign({}, sp, {id:l.id, _parentKey:l.key})),
+  ...(l.folded||[]).flatMap(fm => (fm.subParams||[]).map(sp => Object.assign({}, sp, {id:fm.id, _parentKey:fm.key}))),
+]);
 
 const API_BASE = "";
 const PERIODS = 5;
@@ -1186,10 +1211,20 @@ function buildMesures(){
   ALL_CARDS.forEach(item => {
     const st = state[item.key];
     if (!st.on) return;
-    const val = item.bool ? 1 : st.value;
+    // `boolOnValue` : certains leviers tout-ou-rien du moteur n'attendent pas un simple
+    // 1/0 mais une VALEUR (ex. "abattement_retraites.montant" attend 2000, le forfait de
+    // référence PLF 2026, pas 1€) — l'interrupteur ON/OFF de la carte reste le même,
+    // seule la valeur envoyée à l'API change.
+    const val = item.bool ? (item.boolOnValue ?? 1) : st.value;
     const def = item.bool ? 0 : item.default;
     if (val === def) return;
-    mesures[item.id] = Object.assign({}, mesures[item.id], {[item.param]: val});
+    // `invert` : certains paramètres moteur (ex. "baisse_points" de cotisations_salariales)
+    // sont définis côté backend avec la convention "positif = baisse", à l'inverse de la
+    // convention affichée ici (positif = hausse, cohérente avec tous les autres curseurs
+    // fiscaux où glisser à droite = plus de prélèvement). Le curseur et son affichage
+    // utilisent la convention lisible ; seule la valeur envoyée à l'API est réinversée.
+    const sendVal = item.invert ? -val : val;
+    mesures[item.id] = Object.assign({}, mesures[item.id], {[item.param]: sendVal});
   });
   ALL_SUBPARAMS.forEach(sp => {
     if (!state[sp._parentKey].on) return;
@@ -1203,6 +1238,10 @@ function buildMesures(){
     const def = sp.bool ? (sp.default ? 1 : 0) : sp.default;
     if (val === def) return;
     mesures[sp.id] = Object.assign({}, mesures[sp.id], {[sp.param]: val});
+    // `clearSiblingParam` : option mutuellement exclusive avec un autre paramètre de la
+    // même mesure (ex. "supprimer" l'abattement retraites rend son forfait "montant" sans
+    // objet) — on retire ce paramètre frère du payload plutôt que d'envoyer les deux.
+    if (sp.clearSiblingParam && mesures[sp.id]) delete mesures[sp.id][sp.clearSiblingParam];
   });
   return mesures;
 }
@@ -1498,8 +1537,9 @@ async function runSimulate(){
           detailVal.textContent = "statu quo (valeur par défaut)";
         } else if (item.chiffrageMdEur != null){
           const total = item.chiffrageMdEur + rec;
-          detailVal.className = "val " + cls;
-          detailVal.textContent = `${total.toFixed(1)} Md€ / an (${fmtMdDelta(rec)} vs État)`;
+          detailVal.className = "val";
+          detailVal.innerHTML = `<span class="val-sum">${total.toFixed(1)} Md€ / an</span>`
+            + `<span class="val-delta ${cls}">${fmtMdDelta(rec)} vs État</span>`;
         } else {
           detailVal.className = "val " + cls;
           detailVal.textContent = `${fmtMdDelta(rec)} ${netEffectWords(item, rec)}`;
@@ -1603,7 +1643,7 @@ function subparamHtml(sp, parentOn){
 // de bas de page).
 const ESTIMATION_IDS = new Set(["cotisations_patronales", "elargissement_ir", "exonerations_salaires",
   "fonction_publique", "fonction_publique_reforme", "impot_revenu", "regimes_speciaux_retraite",
-  "smic", "taxe_zucman", "transition_ecologique"]);
+  "smic", "taxe_zucman", "transition_ecologique", "bareme_indexation"]);
 
 function leverHtml(item, subParams){
   const st = state[item.key];
@@ -1646,7 +1686,7 @@ function render(){
     const {on, total} = countActive(t);
     const cards = t.levers.map(l =>
       leverHtml(Object.assign({_kind:"principal"}, l), ALL_SUBPARAMS.filter(sp => sp._parentKey === l.key)) +
-      (l.folded||[]).map(fm => leverHtml(Object.assign({_kind:"folded"}, fm))).join("")
+      (l.folded||[]).map(fm => leverHtml(Object.assign({_kind:"folded"}, fm), ALL_SUBPARAMS.filter(sp => sp._parentKey === fm.key))).join("")
     ).join("");
     return `
       <section class="theme" data-theme="${t.key}">
@@ -1693,6 +1733,15 @@ function wire(){
       card.classList.toggle("active", el.checked);
       if (el.checked) card.classList.add("open"); else card.classList.remove("open");
       card.querySelectorAll(`input[type=range][data-subrange], input[type=checkbox][data-subbool]`).forEach(el2 => el2.disabled = !el.checked);
+      // Réappliquer les exclusions mutuelles (`disablesSibling`) : si la carte se rallume
+      // avec son option "suppression" déjà cochée, son forfait doit rester désactivé.
+      card.querySelectorAll(`input[type=checkbox][data-subbool]`).forEach(el2 => {
+        const sp2 = findSubparam(el2.dataset.subbool);
+        if (sp2 && sp2.disablesSibling){
+          const sib = document.querySelector(`input[data-range="${sp2.disablesSibling}"]`);
+          if (sib) sib.disabled = !el.checked || el2.checked;
+        }
+      });
       refreshCounts();
       if (baselineReady) scheduleSimulate(); else runSimulate();
     });
@@ -1730,6 +1779,13 @@ function wire(){
       const sp = findSubparam(key);
       if (!state[sp._parentKey].on) activateLever(sp._parentKey);
       state[key].value = el.checked ? 1 : 0;
+      // `disablesSibling` : option mutuellement exclusive avec un autre réglage de la même
+      // carte (ex. "suppression totale" vs. forfait de l'abattement retraites) — on grise
+      // visuellement l'autre curseur plutôt que de laisser les deux actifs en même temps.
+      if (sp.disablesSibling){
+        const sib = document.querySelector(`input[data-range="${sp.disablesSibling}"]`);
+        if (sib) sib.disabled = el.checked;
+      }
       if (baselineReady) scheduleSimulate(); else runSimulate();
     });
   });
