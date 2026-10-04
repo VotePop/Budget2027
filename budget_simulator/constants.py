@@ -562,7 +562,11 @@ INTENSITE_DOMAINS = {
 # couple 0,45/0,80 était dupliqué entre l'entrée `taux_remplacement` et la
 # dérivation du domaine `montant`, un littéral de dict ne pouvant pas
 # s'auto-référencer).
-_CHOMAGE_TAUX_DOMAINE = (0.45, 0.80)
+# 2026-10 : plancher abaissé de 0,45 à 0,35 pour pouvoir tester les
+# programmes qui annoncent 12 à 16 Md€ d'économies d'assurance chômage
+# (le plancher 0,45 plafonnait l'économie à ≈ 9 Md€). Le montant plancher
+# dérivé passe de 27,5 à ≈ 21,4 Md€ (policy_measures.json et UI alignés).
+_CHOMAGE_TAUX_DOMAINE = (0.35, 0.80)
 
 PARAM_DOMAINS = {
     'fraude_sociale': {
@@ -617,6 +621,21 @@ PARAM_DOMAINS = {
         'budget': (0.0, 20.0),
     },
 }
+
+# === ASSIETTE DES COTISATIONS PATRONALES (levier `cotisations_patronales`) ===
+# Part des SALAIRES BRUTS dans le PIB, base sur laquelle s'applique le taux
+# patronal de 27 %. Recalée le 2026-10-04 (avant : 0,48).
+# Pourquoi 0,48 était faux : ce chiffre est proche de la RÉMUNÉRATION totale
+# des salariés (1 502,9 Md€ en 2024, ≈ 51 % du PIB, Insee T_6204), qui inclut
+# déjà les cotisations employeurs : y appliquer 27 % les comptait deux fois et
+# donnait ≈ 390 Md€ (1 point ≈ 14,4 Md€).
+# Sources : Insee comptes nationaux base 2020, tableaux 6.204 (rémunération
+# 1 502,9 Md€) et 6.205 (salaires et traitements bruts 1 108,5 Md€ en 2024,
+# soit ≈ 38 % du PIB ≈ 2 919 Md€) ; FIPECO, « Les cotisations sociales »,
+# 20/06/2026 (cotisations patronales ≈ 10 % du PIB ≈ 300 Md€ ; 68 % des
+# 443 Md€ de cotisations totales en 2025). Test : 27 % × 1 108,5 ≈ 299 Md€.
+# Effet : 1 point de taux ≈ 11,5 Md€ en 2026.
+MASSE_SALARIALE_BRUTE_PCT_PIB = 0.38
 
 # === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
 # Coefficients budgétaires du handler retraites (handlers/depenses.py), nommés

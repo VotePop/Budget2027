@@ -10,7 +10,7 @@ Mesures couvertes (7 handlers) :
 - ``subventions_tge`` : soutien public innovation/export/R&D (base 35 Md€).
   Suppression = -dépenses, perte compétitivité innovation LT.
 - ``cotisations_patronales`` : taux patronal (base 27 %, range 15-35 %).
-  Masse salariale ~48 % PIB. Effets emploi/PA/chômage/compétitivité one-time.
+  Salaires bruts ~38 % PIB. Effets emploi/PA/chômage/compétitivité one-time.
 - ``impot_societes`` : taux IS (base 25 %) + niches IS. Assiette = bénéfice
   fiscal imposable (~9,1 % PIB), élasticité DG Trésor 2017, ``np.clip`` sur
   les niches. Effet récession via ``self.base_params['pib_base']``.
@@ -59,6 +59,7 @@ from ..constants import (
     COEFF_COMPETITIVITE_NICHES_SOCIALES_TGE,
     COEFF_COMPETITIVITE_SUBVENTIONS_TGE,
     COEFF_PA_NICHES_SOCIALES_TGE,
+    MASSE_SALARIALE_BRUTE_PCT_PIB,
     PHASING_NICHES_FISCALES_TGE,
     POLICY_START_YEAR,
 )
@@ -200,14 +201,14 @@ class CompetitiviteMixin(_MixinBase):
 
     def _apply_cotisations_patronales(self, measure: Dict, params: Dict, year: int,
                                        gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
-        """Cotisations patronales (27% actuel, range 15-35%). Masse salariale 48% PIB. -1 pt = +0.08% emploi.
+        """Cotisations patronales (27% actuel, range 15-35%). Salaires bruts 38% PIB (≈300 Md€ à 27%). -1 pt = +0.08% emploi.
         Sources: OCDE 2025, France Stratégie 2024. Voir METHODOLOGIE.md § Competitivite des Entreprises."""
         taux = params.get('taux', 0.27)
         taux_actuel = 0.27
         delta_taux = taux - taux_actuel
 
-        # Masse salariale privée (~48% PIB)
-        masse_salariale = gdp * 0.48
+        # Salaires bruts (~38% PIB, Insee 6.205 — cf. constants.MASSE_SALARIALE_BRUTE_PCT_PIB)
+        masse_salariale = gdp * MASSE_SALARIALE_BRUTE_PCT_PIB
         delta_revenue_social = delta_taux * masse_salariale
 
         # Impact emploi (exporté) : -1 point cotisations = +0.08% emploi

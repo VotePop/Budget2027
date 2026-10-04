@@ -1626,3 +1626,45 @@ historique, non supprimés).
 valeur et l'étiquette de catégorie peuvent légèrement se chevaucher pour une barre proche du
 maximum de l'échelle — défaut cosmétique hérité du graphique décile original de la page de
 production (pas introduit par cette fusion), non corrigé faute de périmètre.
+
+## 2026-10-04 — Banc d'essai de documents programmatiques : curseurs élargis, libellés alignés
+
+Un banc d'essai a traduit en réglages de nos leviers les chiffrages de plusieurs livrets
+(chômage, effectifs publics, enseignants, cotisations, impôts de production, fraude). Résultats
+et écarts : `Banc_essai_programmes.xlsx`. Conséquences, sans changer aucun coefficient de calcul :
+
+- **Curseurs élargis** (`policy_measures.json`, `frontend/index.html`) :
+  `chomage_alloc.montant` min 27,5 → 21,4 Md€ (le domaine `_CHOMAGE_TAUX_DOMAINE` de
+  `constants.py` passe de 0,45–0,80 à 0,35–0,80, dont le montant dérive) ;
+  `fonction_publique.effectifs` min −100 000 → −150 000 (toujours plafonné par le vivier de départs) ;
+  `education.enseignants` min −20 000 → −120 000.
+- **Libellé fraude fiscale** : la « cible 0-30 Md€ » est un montant BRUT détecté ; le net est ≈ 53 %
+  (68 % recouvrés − 15 % de coûts de contrôle) avec montée en charge sur 5 ans. Texte précisé ; calcul inchangé.
+- **Cotisations patronales : base recalée** (`constants.MASSE_SALARIALE_BRUTE_PCT_PIB` = 0,38, avant 0,48 en dur dans le handler).
+  Le 0,48 était proche de la rémunération totale (≈ 51 % du PIB, qui inclut déjà les cotisations) : 27 % dessus donnait ≈ 390 Md€
+  (1 point ≈ 14,4 Md€). Sources : Insee comptes nationaux base 2020, tables 6.204 (1 502,9 Md€) et 6.205 (salaires bruts 1 108,5 Md€
+  en 2024, ≈ 38 % du PIB) ; FIPECO « Les cotisations sociales » (20/06/2026 : patronales ≈ 10 % du PIB ≈ 300 Md€). Contrôle : 27 % × 1 108,5 ≈ 299 Md€.
+  Effet : 1 point ≈ 11,5 Md€ (2026) ; tous les résultats de ce levier perdent ≈ 21 % d'ampleur. Libellé UI aligné.
+- **ASU** : le coût (et non l'économie) est voulu et documenté dans le handler (source : mission flash AN, juillet 2025). Aucun changement.
+- Tests : baseline inchangée (3 échecs et 7 erreurs préexistants dus au registre périmé).
+
+## 2026-10-04 — Lecture triple État / Sécurité sociale / Collectivités dans le bandeau « Finances publiques »
+
+- Le moteur reste consolidé (administrations publiques). Le bandeau affiche en plus, sous les tuiles Finances publiques,
+  trois tuiles : solde 2025 de chaque budget (Insee, Informations rapides n°78 : État −128,1 + ODAC −2,1 ; ASSO −6,7 ; APUL −15,6 ; total −152,5 Md€)
+  et contribution des réformes activées (effet direct, Md€/an, avant effets macro).
+- Répartition par levier : table `BUDGET_SHARES` dans `frontend/index.html` ([État+ODAC, Sécu, Collectivités], somme = 1, 50 leviers).
+  **Clés indicatives, à valider levier par levier** (voir `Table_affectation_budgets.xlsx`). La somme des trois tuiles égale le total « Amélioration nette du solde public ».
+- Libellés : titre « Budget de l'État 2030 » → « Finances publiques de la France 2030 » ; légende « Budget de l'État (référence, non modifié) » → « Finances publiques (référence, sans réforme) ».
+- Aucun changement de calcul côté moteur.
+
+- Correction (2026-10-04, suite) : clé `csg` passée de [0,05 ; 0,95 ; 0] à [0 ; 1 ; 0]. Source : PLFSS 2026, annexe 3, tableau de répartition des
+  impositions affectées à la sécurité sociale (CSG activité, remplacement, patrimoine, placements, jeux : tous les points de CSG sont affectés à
+  Cnam, Cnaf, Cnav/FSV, CNSA, CADES ou Unédic, aucun à l'État) ; FIPECO, « L'impôt sur le revenu et la CSG » : la CSG est « affectée à la sécurité sociale ».
+
+## 2026-10-04 — Refonte du bandeau du haut (maquette v13 validée)
+- Nouvelle bande pleine largeur : Déficit/PIB (+ Md€), Dette/PIB (+ Md€), PIB, Recettes/PIB, Dépenses/PIB, **Solde primaire/PIB**, **Intérêts de la dette**, avec la ligne « État » de référence sous chaque repère (année 2030).
+- Bloc « Emploi, prix & budgets » : Chômage, Inflation, **Croissance moyenne 2026-2030**, lecture État / Sécu / Collectivités, coût net et lien « Détail du coût » sur une ligne.
+- Trois blocs de même hauteur ; titre « Répartition de l'effort net… » supprimé (fusionné dans la ligne de total).
+- `api.py` : `/simulate_decile` renvoie `interets` (Année, Intérêts_Dette) issu du second DataFrame du moteur ; moteur inchangé. Solde primaire = Déficit + intérêts (en % du PIB).
+- Correctif bandeau (aligné sur la maquette v13) : blocs Pouvoir d'achat / Compétitivité compactés (mention « indice national » dans l'en-tête, libellé redondant et liens « Détail » supprimés, détails toujours affichés) → trois blocs de même hauteur (176 px), « Amélioration nette » alignée sur D5.

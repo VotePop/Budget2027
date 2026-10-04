@@ -234,6 +234,13 @@ async def simulate_decile(request: SimulationRequest):
             # notre propre endpoint ajouté (absent du dépôt d'origine, cf. CHANGES.md), cette
             # extension ne touche aucun fichier du moteur original.
             "measure_impacts": measure_impacts,
+            # AJOUT (2026-10-04) : charge d'intérêts de la dette par année (Md€), issue du
+            # second DataFrame du moteur, pour les repères « Intérêts » et « Solde primaire »
+            # de la bande du haut. Aucune modification du moteur.
+            "interets": [
+                {"Année": int(r["Année"]), "Intérêts_Dette": float(r["Intérêts_Dette"])}
+                for r in details.to_dict(orient='records')
+            ],
         }
     except (ValueError, KeyError, AttributeError, TypeError, ZeroDivisionError) as e:
         logger.error("Erreur simulate_decile (%s) : %s", type(e).__name__, e, exc_info=True)

@@ -52,12 +52,12 @@
   .kpi-tile .d{font-size:0.66rem; font-variant-numeric:tabular-nums;}
   .kpi-tile .d.good{color:var(--good);} .kpi-tile .d.bad{color:var(--bad);} .kpi-tile .d.flat{color:var(--flat);}
 
-  .blocks-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; max-width:1180px; margin:0 auto; align-items:start;}
+  .blocks-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; max-width:1180px; margin:0 auto; align-items:stretch;}
   @media (max-width:800px){ .blocks-grid{grid-template-columns:minmax(0,1fr);} }
   .block-card{
     background:var(--surface); border:1px solid var(--border); border-radius:14px;
     padding:9px 14px 10px; border-left:3px solid var(--muted2);
-    display:flex; flex-direction:column; min-width:0; line-height:1.2; justify-content:center;
+    display:flex; flex-direction:column; min-width:0; line-height:1.2; justify-content:flex-start;
   }
   .block-card.finances{border-left-color:var(--accent2);}
   .block-card.pouvoir-achat{border-left-color:var(--accent);}
@@ -318,13 +318,44 @@
   button.reset{background:var(--accent); color:#0b1210; border:none; border-radius:10px; padding:9px 16px;
     font-size:0.82rem; font-weight:700; cursor:pointer; margin:4px 0 0;}
   button.reset:hover{opacity:0.9;}
+  .block-card .budget-triple{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 2px;}
+  .block-card .budget-tile{border:1px solid rgba(128,128,128,0.35);border-radius:8px;padding:6px 8px;line-height:1.25;}
+  .block-card .budget-tile .bt-name{font-size:0.72rem;font-weight:600;margin:0;}
+  .block-card .budget-tile .bt-ref{font-size:0.62rem;opacity:0.7;margin:1px 0 0;font-weight:400;}
+  .block-card .budget-tile .bt-delta{font-size:0.78rem;font-weight:600;margin:2px 0 0;}
+  .budget-tile .bt-delta.good{color:#16a34a;} .budget-tile .bt-delta.bad{color:#dc2626;} .budget-tile .bt-delta.flat{opacity:0.7;}
+  .block-card .budget-triple-note{grid-column:1/-1;font-size:0.62rem;opacity:0.65;line-height:1.3;}
+  @media (max-width:640px){.budget-triple{grid-template-columns:1fr;}}
+  .tiles-row.single .kpi-tile .k{display:none;}
+  .tiles-row.single .kpi-tile .scenario-line .v{font-size:1.05rem;}
+  .block-card .decile-chart, .block-card .taille-chart{margin-top:4px; padding-top:5px;}
+  .top-strip{display:grid; grid-template-columns:repeat(7,auto); justify-content:space-between; gap:6px 14px; max-width:1180px; margin:0 auto 10px;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:7px 14px;}
+  .top-strip .kpi-tile{border-right:none; padding:0; min-width:0;}
+  .top-strip .kpi-tile .k{font-size:0.64rem; color:var(--muted); font-weight:600; margin-bottom:0;}
+  .top-strip .kpi-tile .etat-line{font-size:0.6rem;}
+  .top-strip .kpi-tile .scenario-line .v{font-size:0.9rem; white-space:nowrap;}
+  .top-strip .kpi-tile .d{font-size:0.62rem; white-space:nowrap;}
+  @media (max-width:800px){ .top-strip{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .block-card.finances .tiles-row .kpi-tile .scenario-line .v{font-size:1.05rem;}
+  .block-card.finances .tiles-row .kpi-tile .k{font-size:0.64rem;}
+  .block-card.finances .budget-tile .bt-name{font-size:0.64rem;}
+  .block-card.finances .budget-tile .bt-ref{font-size:0.6rem;}
+  .block-card.finances .budget-tile .bt-delta{font-size:0.8rem; margin-top:1px;}
+  .block-card.finances .tiles-row{gap:6px;}
+  .block-card.finances .tiles-row .kpi-tile{padding:0 9px;}
+  .block-card .budget-triple{margin:12px 0 0;}
+  .block-card .budget-tile{padding:3px 8px; line-height:1.2;}
+  .cout-line-row{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-top:auto; padding-top:6px;}
+  .cout-line-row .cout-total-line{margin:0;}
+  .cout-line-row .mini-toggle{padding:0; white-space:nowrap;}
 
 </style>
 </head>
 <body>
 <header class="top">
   <div class="inner">
-    <h1>Simulateur interactif – Budget de l'État 2030</h1>
+    <h1>Simulateur interactif – Finances publiques de la France 2030</h1>
   </div>
   <div class="note" id="baseline-explainer" style="background:rgba(248,113,113,0.1); border-color:rgba(248,113,113,0.4);">
     <b>Pourquoi le déficit se dégrade même sans rien toucher ?</b><br><br>
@@ -340,34 +371,36 @@
 
 <div class="compare-bar">
   <div class="compare-legend">
-    <span><span class="dot etat"></span> Budget de l'État (référence, non modifié)</span>
+    <span><span class="dot etat"></span> Finances publiques (référence, sans réforme)</span>
     <span><span class="dot scenario"></span> Votre scénario (leviers ci-dessous)</span>
   </div>
+  <div class="top-strip" id="finances-strip" title="Repères 2030 : tout ce qui se lit par rapport au PIB. Solde primaire = solde public hors charge d'intérêts de la dette. Croissance = moyenne annuelle 2026-2030."><!-- rempli en JS --></div>
   <div class="blocks-grid">
     <div class="block-card finances">
-      <div class="block-head"><h3>Finances publiques</h3><span class="block-year" id="finances-year"></span></div>
+      <div class="block-head"><h3>Emploi, prix &amp; budgets</h3><span class="block-year" id="finances-year"></span></div>
       <div class="tiles-row" id="finances-primary"><!-- rempli en JS --></div>
-      <div class="cout-total-line cout-total-standalone" id="finances-cout-total" title="Effet net sur le solde public (recettes − dépenses) de l'ensemble des leviers actuellement activés et réglés différemment de leur valeur par défaut. Positif = améliore le solde (recette ou économie) ; négatif = dégrade le solde (coût net à financer)."><!-- rempli en JS --></div>
-      <button type="button" class="mini-toggle" data-target="finances-cout-wrap" data-label="Détail du coût par levier">+ Détail du coût par levier</button>
+      <div class="budget-triple" id="finances-triple" title="Lecture par budget : le moteur raisonne sur l'ensemble des administrations publiques (consolidé). Cette lecture répartit l'effet direct de chaque réforme entre l'État, la Sécurité sociale et les collectivités selon une clé INDICATIVE par levier (cf. BUDGET_SHARES dans le code), avant effets macro. Soldes 2025 : Insee."><!-- rempli en JS --></div>
+      <div class="cout-line-row">
+        <div class="cout-total-line" id="finances-cout-total" title="Effet net sur le solde public (recettes − dépenses) de l'ensemble des leviers actuellement activés et réglés différemment de leur valeur par défaut. Positif = améliore le solde (recette ou économie) ; négatif = dégrade le solde (coût net à financer)."><!-- rempli en JS --></div>
+        <button type="button" class="mini-toggle" data-target="finances-cout-wrap" data-label="Détail du coût">+ Détail du coût</button>
+      </div>
       <div class="mini-detail cout-detail" id="finances-cout-wrap">
         <div id="finances-cout-liste"><!-- rempli en JS --></div>
       </div>
     </div>
     <div class="block-card pouvoir-achat">
-      <div class="block-head"><h3>Pouvoir d'achat</h3></div>
+      <div class="block-head"><h3>Pouvoir d'achat</h3><span class="block-year">indice national</span></div>
       <div class="tiles-row single" id="pa-global"><!-- rempli en JS --></div>
-      <button type="button" class="mini-toggle" data-target="pa-decile-wrap" data-label="Détail par décile de revenu">– Détail par décile de revenu</button>
       <div class="mini-detail decile-chart open" id="pa-decile-wrap" title="Impact €/mois par ménage, par décile de niveau de vie : delta Md€ de chaque levier, ventilé par décile selon les clés sourcées (CPO/Boutchenik 2015, DG Trésor Trésor-Éco n°371 2025, DREES/ACOSS), divisé par 1/10e du nombre total de ménages en France (31 274 741, INSEE 2023) puis par 12.">
         <div class="decile-chart-title">Impact par décile de revenu (€/mois/ménage)</div>
         <div id="pa-decile"><!-- rempli en JS --></div>
       </div>
     </div>
     <div class="block-card competitivite">
-      <div class="block-head"><h3>Compétitivité</h3></div>
+      <div class="block-head"><h3>Compétitivité</h3><span class="block-year">indice national</span></div>
       <div class="tiles-row single" id="compet-global"><!-- rempli en JS --></div>
-      <button type="button" class="mini-toggle" data-target="compet-detail" data-label="Ventilation par taille d'entreprise">– Ventilation par taille d'entreprise</button>
       <div class="mini-detail taille-chart open" id="compet-detail" title="Impact Md€ par catégorie d'entreprise (MIC = microentreprises) : delta Md€ de chaque levier ventilé par taille selon une clé sourcée (impôt sur les sociétés : INSEE Références « Les entreprises en France », éd. décembre 2023, données DGFiP 2021) ou, pour les mesures « TGE », selon le périmètre déjà défini par le moteur.">
-        <div class="taille-chart-title">Répartition de l'effort net entre catégories d'entreprise</div>
+        <div class="taille-chart-title">Répartition de l'effort net par taille d'entreprise</div>
         <div id="compet-taille-total" class="taille-total"><!-- rempli en JS --></div>
         <div id="compet-taille"><!-- rempli en JS --></div>
       </div>
@@ -515,7 +548,7 @@ const THEMES = [
          {id:"taxe_gafa", param:"taux", key:"taxe_gafa__taux", label:"Taxe sur les services numériques (GAFA)", scope:"Chiffre d'affaires numérique des grandes entreprises tech (seuil CA mondial 750 M€).",
           min:0.01, max:0.08, step:0.005, default:0.03, fmt:"pct1", chiffrage:"0,7 Md€ / an (taux 3%)", chiffrageMdEur:0.7},
        ]},
-      {id:"fraude_fiscale", param:"effort", key:"fraude_fiscale__effort", label:"Lutte contre la fraude fiscale", scope:"Intensité des contrôles fiscaux et sociaux (IA/data mining), de 0 (statu quo) à 1 (effort maximal).",
+      {id:"fraude_fiscale", param:"effort", key:"fraude_fiscale__effort", label:"Lutte contre la fraude fiscale", scope:"Intensité des contrôles fiscaux et sociaux (IA/data mining), de 0 (statu quo) à 1 (effort maximal = 30 Md€ de fraude détectée en brut). Le gain net est d'environ 53 % du brut (68 % recouvrés, moins 15 % de coûts de contrôle) et monte en charge sur 5 ans : effort 0,1 = 3 Md€ détectés, ≈ 1,6 Md€ nets à maturité.",
        min:0, max:1, step:0.1, default:0, fmt:"pct0", chiffrage:"gisement 80-100 Md€"},
     ]
   },
@@ -594,7 +627,7 @@ const THEMES = [
        ]},
       {id:"chomage_alloc", param:"montant", key:"chomage_alloc__montant", label:"Assurance chômage",
        scope:"Budget total des allocations chômage versées. La durée maximale d'indemnisation et la dégressivité sont 2 curseurs de la même réforme, réglés ci-dessous.",
-       min:27.5, max:48.8, step:0.1, default:36.6, fmt:"md1", decile:false, cible:"depenses",
+       min:21.4, max:48.8, step:0.1, default:36.6, fmt:"md1", decile:false, cible:"depenses",
        chiffrage:"36,6 Md€ / an",
        subParams:[
          {param:"duree", key:"chomage_alloc__duree", label:"Durée maximale d'indemnisation", scope:"Durée maximale de versement de l'allocation chômage.",
@@ -666,7 +699,7 @@ const THEMES = [
     levers:[
       {id:"fonction_publique", param:"effectifs", key:"fonction_publique__effectifs", label:"Effectifs & point d'indice (FP)",
        scope:"Variation du nombre d'agents publics (5,5M agents, masse salariale base 330 Md€, DGAFP/INSEE 2024). Une réduction opère par non-remplacement des départs en retraite (~157k/an), pas par licenciement — plafonnée au vivier de départs cumulés, partagé avec la réforme de l'État ci-dessous (anti-double-comptage). Une création de postes coûte plein tarif. Le point d'indice est réglé ci-dessous.",
-       min:-100000, max:50000, step:10000, default:0, fmt:"agents", decile:false, cible:"depenses",
+       min:-150000, max:50000, step:10000, default:0, fmt:"agents", decile:false, cible:"depenses",
        chiffrage:"0 agent, 0% point d'indice (statu quo)",
        subParams:[
          {param:"point_indice", key:"fonction_publique__point_indice", label:"Point d'indice", scope:"Revalorisation du point d'indice, appliquée à la masse salariale totale de la fonction publique (330 Md€). +1% de point d'indice ≈ +3,3 Md€/an.",
@@ -708,7 +741,7 @@ const THEMES = [
        chiffrage:"65 Md€ / an (budget 2025)",
        subParams:[
          {param:"enseignants", key:"education__enseignants", label:"Variation du nombre de postes", scope:"Variation du nombre de postes d'enseignants, valorisée à 65 000€/an par poste (coût chargé).",
-          min:-20000, max:50000, step:5000, default:0, fmt:"agents"},
+          min:-120000, max:50000, step:5000, default:0, fmt:"agents"},
          {param:"salaires", key:"education__salaires", label:"Revalorisation salariale", scope:"Revalorisation salariale des enseignants, en % de la masse salariale de l'Éducation nationale.",
           min:-5, max:15, step:1, default:0, fmt:"pctrawsigned"},
        ]},
@@ -740,7 +773,7 @@ const THEMES = [
     sub:"Deux leviers qui touchent toutes les entreprises, quelle que soit leur taille.",
     levers:[
       {id:"cotisations_patronales", param:"taux", key:"cotisations_patronales__taux", label:"Cotisations patronales",
-       scope:"Taux de cotisations sociales patronales (actuel 27%, ~324 Md€/an, masse salariale privée ~48% du PIB). -1 point = +0,08% d'emploi (Kramarz & Philippon 2001). Impact compétitivité one-time proportionnel au montant (0,020/Md€, calibré sur la bascule CICE : -50 Md€ → +1,0 compétitivité). Affecte aussi pouvoir d'achat et chômage. Non ventilé par taille d'entreprise (données DGFiP insuffisantes, cf bandeau ci-dessus).",
+       scope:"Taux de cotisations sociales patronales (actuel 27%, ≈300 Md€/an = 27% × salaires bruts ≈38% du PIB, Insee 2024 et FIPECO ; 1 point ≈ 11,5 Md€, croissant avec le PIB). -1 point = +0,08% d'emploi (Kramarz & Philippon 2001). Impact compétitivité one-time proportionnel au montant (0,020/Md€, calibré sur la bascule CICE : -50 Md€ → +1,0 compétitivité). Affecte aussi pouvoir d'achat et chômage. Non ventilé par taille d'entreprise (données DGFiP insuffisantes, cf bandeau ci-dessus).",
        min:0.15, max:0.35, step:0.01, default:0.27, fmt:"pct0", decile:false, cible:"recettes",
        chiffrage:"27% (~324 Md€/an)"},
       {id:"impots_production", param:"montant", key:"impots_production__montant", label:"Impôts de production",
@@ -1253,14 +1286,34 @@ function lastRow(results){ return results[results.length-1]; }
 let baselineKpis = null;
 
 // Bloc "Finances publiques" : grille fixe 3×2, tout est toujours visible.
-const FINANCES_PRIMARY = [
-  {k:"Déficit / PIB", field:"Déficit/PIB %", higherIsBetter:true},
-  {k:"Dette / PIB", field:"Dette/PIB %", higherIsBetter:false},
-  {k:"Chômage", field:"Chômage %", higherIsBetter:false},
+// Bande du haut (tout ce qui se lit par rapport au PIB) : 7 repères sur une ligne.
+const FINANCES_STRIP = [
+  {k: r => `Déficit / PIB · ${Math.abs(r["Déficit"]).toFixed(0)} Md€`, field:"Déficit/PIB %", higherIsBetter:true},
+  {k: r => `Dette / PIB · ${Math.round(r["Dette"]).toLocaleString("fr-FR")} Md€`, field:"Dette/PIB %", higherIsBetter:false},
   {k:"PIB", field:"PIB", higherIsBetter:true, unit:" Md€"},
   {k:"Recettes / PIB", field:"Recettes/PIB %", higherIsBetter:true},
   {k:"Dépenses / PIB", field:"Dépenses/PIB %", higherIsBetter:false},
+  {k:"Solde primaire / PIB", field:"Solde primaire %", higherIsBetter:true},
+  {k:"Intérêts de la dette", field:"Intérêts Md€", higherIsBetter:false, unit:" Md€"},
 ];
+// Bloc "Emploi, prix & budgets" : 3 repères + lecture par budget.
+const FINANCES_PRIMARY = [
+  {k:"Chômage", field:"Chômage %", higherIsBetter:false},
+  {k:"Inflation", field:"Inflation %", higherIsBetter:false},
+  {k:"Croissance 26-30", field:"Croissance moy. %", higherIsBetter:true},
+];
+// Ajoute à la ligne de l'année cible les repères dérivés : croissance moyenne depuis 2026,
+// solde primaire (= déficit + charge d'intérêts, en % du PIB) et intérêts (Md€, API : `interets`).
+function enrichRow(results, interets){
+  const row = Object.assign({}, lastRow(results));
+  const y = row["Année"];
+  const g = results.filter(r => r["Année"] > 2025 && r["Année"] <= y).map(r => r["Croissance %"]);
+  row["Croissance moy. %"] = g.length ? g.reduce((a,b)=>a+b,0)/g.length : null;
+  const it = (interets || []).find(r => r["Année"] === y);
+  row["Intérêts Md€"] = it ? it["Intérêts_Dette"] : null;
+  row["Solde primaire %"] = it ? (row["Déficit"] + it["Intérêts_Dette"]) / row["PIB"] * 100 : null;
+  return row;
+}
 // Bloc "Pouvoir d'achat" / "Compétitivité" : indices macro base 100 déjà calculés par le moteur.
 const INDEX_METRICS = {
   pouvoirAchat: {k:"Pouvoir d'achat (indice, national)", field:"Pouvoir d'Achat", higherIsBetter:true},
@@ -1305,7 +1358,8 @@ function renderTilesRow(containerId, metrics, row, baseline, year){
     const baseVal = baseline ? baseline[m.field] : null;
     const curVal = row ? row[m.field] : null;
     const fmtFn = m.unit ? (v => v.toFixed(0)+m.unit) : fmtPct2;
-    return tileHtml(m.k, curVal, baseVal, m.higherIsBetter, fmtFn, year);
+    const label = typeof m.k === "function" ? m.k(row || baseline) : m.k;
+    return tileHtml(label, curVal, baseVal, m.higherIsBetter, fmtFn, year);
   }).join("");
 }
 
@@ -1392,12 +1446,66 @@ function renderTailleRow(totalParCategorie){
 // net sur le solde public (netEffect, cf. plus bas) pour chaque carte actuellement activée
 // ET réglée différemment de sa valeur par défaut. Alimenté depuis la même boucle que les
 // badges par carte dans runSimulate() — pas de nouvel appel API.
+
+// ---- Lecture par budget (État / Sécurité sociale / Collectivités) ----------------------
+// Le moteur est consolidé (administrations publiques). Cette lecture répartit l'effet direct
+// de chaque levier entre les trois budgets avec une clé INDICATIVE [État+organismes centraux,
+// Sécurité sociale (ASSO : régimes, Unédic, complémentaires, hôpitaux), Collectivités (APUL)],
+// somme = 1. Ce sont des ordres de grandeur à valider levier par levier, pas des données.
+// Référence : solde 2025 par sous-secteur, Insee (Informations rapides n°78) :
+// État −128,1 + ODAC −2,1 ; ASSO −6,7 ; APUL −15,6 ; total −152,5 Md€.
+const BUDGET_REF_2025 = {etat: -130.2, secu: -6.7, coll: -15.6};
+const BUDGET_SHARES = {
+  fraude_fiscale:[0.8,0.1,0.1], tva_rate:[0.60,0.25,0.15], tva_energie:[0.60,0.25,0.15],
+  impot_societes:[0.97,0,0.03], is_exceptionnel_tge:[1,0,0], taxe_superprofits:[1,0,0],
+  niches_fiscales_tge:[1,0,0], taxe_gafa:[1,0,0], subventions_tge:[1,0,0],
+  niches_sociales_tge:[0.1,0.9,0],
+  retraites:[0.2,0.8,0], regimes_speciaux_retraite:[0.3,0.7,0], sante:[0.05,0.95,0],
+  chomage_alloc:[0,1,0], fraude_sociale:[0,1,0],
+  fonction_publique:[0.45,0.2,0.35], fonction_publique_reforme:[0.45,0.2,0.35], rabot_uniforme:[0.6,0.25,0.15],
+  education:[0.93,0,0.07], collectivites:[0,0,1], defense:[1,0,0],
+  transition_ecologique:[0.8,0,0.2], recherche_publique:[1,0,0], credit_impot_recherche:[1,0,0],
+  immigration:[0.9,0.1,0], optimisation_dette:[0.9,0.05,0.05],
+  impot_revenu:[1,0,0], bareme_indexation:[1,0,0], elargissement_ir:[1,0,0],
+  quotient_familial:[1,0,0], quotient_conjugal:[1,0,0], pfu_bareme:[1,0,0], abattement_retraites:[1,0,0],
+  fiscalite_patrimoine:[0.7,0,0.3], isf_climatique:[1,0,0], taxe_zucman:[1,0,0], cdhr:[1,0,0],
+  taxe_holdings_patrimoniales:[1,0,0], ttf:[1,0,0], accises:[0.85,0.05,0.10],
+  csg:[0,1,0], cotisations_patronales:[0.1,0.9,0], cotisations_salariales:[0.1,0.9,0],
+  exonerations_salaires:[0.5,0.5,0], exoneration_heures_sup:[0.6,0.4,0],
+  impots_production:[0.2,0.1,0.7],
+  prestations_indexation:[0.35,0.45,0.2], coupe_prestations:[0.35,0.45,0.2], asu:[0.5,0.2,0.3],
+  smic:[0.3,0.5,0.2]
+};
+function renderBudgetTriple(coutItems){
+  const root = document.getElementById("finances-triple");
+  if (!root) return;
+  const tot = {etat:0, secu:0, coll:0};
+  (coutItems || []).forEach(it => {
+    const sh = BUDGET_SHARES[it.id] || [1,0,0];
+    tot.etat += it.rec * sh[0]; tot.secu += it.rec * sh[1]; tot.coll += it.rec * sh[2];
+  });
+  const tiles = [
+    ["etat","État + org."],
+    ["secu","Sécurité sociale"],
+    ["coll","Collectivités"]
+  ];
+  root.innerHTML = tiles.map(([k,name]) => {
+    const d = tot[k];
+    const flat = Math.abs(d) < 0.05;
+    const cls = flat ? "flat" : (d > 0 ? "good" : "bad");
+    const lbl = flat ? "≈ 0 Md€/an" : `${fmtMdDelta(d)}/an`;
+    return `<div class="budget-tile"><div class="bt-name">${name}</div>`
+      + `<div class="bt-ref">2025 : ${BUDGET_REF_2025[k].toFixed(1).replace(".",",")} Md€</div>`
+      + `<div class="bt-delta ${cls}">${lbl}</div></div>`;
+  }).join("");
+}
+
 function renderCoutTotal(items){
   const totalRoot = document.getElementById("finances-cout-total");
   const listRoot = document.getElementById("finances-cout-liste");
   if (!totalRoot || !listRoot) return;
   if (!items.length){
-    totalRoot.innerHTML = "Aucun levier activé pour l'instant — coût total : <b class=\"flat\">0 Md€ / an</b>";
+    totalRoot.innerHTML = "Aucun levier activé : <b class=\"flat\">0 Md€/an</b>";
     listRoot.innerHTML = "";
     return;
   }
@@ -1405,10 +1513,10 @@ function renderCoutTotal(items){
   const flatTotal = Math.abs(total) < 0.05;
   const cls = flatTotal ? "flat" : (total > 0 ? "good" : "bad");
   totalRoot.innerHTML = flatTotal
-    ? `Effet net total des réformes sélectionnées : <b class="flat">≈0 Md€ / an</b>`
+    ? `Effet net des réformes : <b class="flat">≈0 Md€/an</b>`
     : total > 0
-      ? `Amélioration nette du solde public : <b class="good">${fmtMdDelta(total)} / an</b>`
-      : `Coût net pour le solde public : <b class="bad">${fmtMdDelta(total)} / an</b>`;
+      ? `Amélioration nette : <b class="good">${fmtMdDelta(total)}/an</b>`
+      : `Coût net pour le solde : <b class="bad">${fmtMdDelta(total)}/an</b>`;
   listRoot.innerHTML = items.map(it => {
     const flat = Math.abs(it.rec) < 0.05;
     const cls2 = flat ? "flat" : (it.rec > 0 ? "good" : "bad");
@@ -1423,7 +1531,8 @@ function renderCoutTotal(items){
 function renderCompareBar(row, baseline, decile, ventilTaille){
   const year = row ? row["Année"] : (baseline ? baseline["Année"] : "");
   const yearEl = document.getElementById("finances-year");
-  if (yearEl) yearEl.textContent = year ? `(${year})` : "";
+  if (yearEl) yearEl.textContent = year ? `${year}` : "";
+  renderTilesRow("finances-strip", FINANCES_STRIP, row, baseline, null);
   renderTilesRow("finances-primary", FINANCES_PRIMARY, row, baseline, null);
   renderIndexTile("pa-global", INDEX_METRICS.pouvoirAchat, row, baseline);
   renderIndexTile("compet-global", INDEX_METRICS.competitivite, row, baseline);
@@ -1442,7 +1551,7 @@ async function ensureBaseline(){
   try{
     const data = await callSimulate({});
     baselineResults = data.results;
-    baselineKpis = lastRow(data.results);
+    baselineKpis = enrichRow(data.results, data.interets);
     renderCompareBar(baselineKpis, baselineKpis);
     renderBaselineExplainer(data.results);
     baselineReady = true;
@@ -1531,7 +1640,7 @@ async function runSimulate(){
   try{
     const mesures = buildMesures();
     const data = await callSimulate(mesures);
-    renderCompareBar(lastRow(data.results), baselineKpis, data.decile, data.ventilation_taille);
+    renderCompareBar(enrichRow(data.results, data.interets), baselineKpis, data.decile, data.ventilation_taille);
     const coutItems = [];
     ALL_CARDS.forEach(item => {
       const imp = findImpact(data.measure_impacts, item.id);
@@ -1539,7 +1648,7 @@ async function runSimulate(){
       const on = state[item.key].on;
       const changed = on && Math.abs(rec) >= 0.05;
       const cls = rec > 0 ? "good" : "bad";
-      if (changed) coutItems.push({label: item.label, rec});
+      if (changed) coutItems.push({label: item.label, rec, id: item.id});
 
       const detailVal = document.querySelector(`[data-impact-val="${item.key}"]`);
       const detailBox = document.querySelector(`[data-impact-block="${item.key}"]`);
@@ -1581,6 +1690,7 @@ async function runSimulate(){
       }
     });
     renderCoutTotal(coutItems);
+    renderBudgetTriple(coutItems);
     const cmp = await ensureComparison();
     renderCharts(data.results, baselineResults || data.results, cmp);
     renderImpactTable(data.measure_impacts, data.results);
